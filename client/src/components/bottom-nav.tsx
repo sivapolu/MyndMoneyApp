@@ -20,15 +20,15 @@ export function BottomNav() {
           const isActive = location === item.path;
           return (
             <Link key={item.path} href={item.path}>
-              <a
-                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors hover-elevate rounded-lg ${
+              <div
+                className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors hover-elevate rounded-lg cursor-pointer ${
                   isActive ? "text-primary" : "text-muted-foreground"
                 }`}
                 data-testid={item.testId}
               >
                 <Icon className={`h-5 w-5 ${isActive ? "fill-current" : ""}`} />
                 <span className="text-xs font-medium">{item.label}</span>
-              </a>
+              </div>
             </Link>
           );
         })}

@@ -58,11 +58,18 @@ export default function Accounts() {
   });
 
   const handleSubmit = (data: z.infer<typeof accountFormSchema>) => {
-    const icon = accountIcons[data.type as keyof typeof accountIcons].name;
+    // Map account types to icon names
+    const iconMap: Record<string, string> = {
+      cash: 'Wallet',
+      card: 'CreditCard',
+      wallet: 'Smartphone',
+      crypto: 'Bitcoin',
+    };
+    
     createMutation.mutate({
       ...data,
       balance: parseFloat(data.balance),
-      icon,
+      icon: iconMap[data.type] || 'Wallet',
     });
   };
 
