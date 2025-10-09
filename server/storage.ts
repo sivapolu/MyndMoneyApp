@@ -1,272 +1,315 @@
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, and, gte, sql } from "drizzle-orm";
 import type {
   Category, InsertCategory,
   Account, InsertAccount,
   Transaction, InsertTransaction,
   Budget, InsertBudget,
   Goal, InsertGoal,
+  User, UpsertUser,
   DashboardStats
 } from "@shared/schema";
+import { categories, accounts, transactions, budgets, goals, users } from "@shared/schema";
 
 export interface IStorage {
-  // Categories
+  // User operations (required for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
+  // Categories (global, not user-specific)
   getCategories(): Promise<Category[]>;
   getCategoryById(id: string): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
   
-  // Accounts
-  getAccounts(): Promise<Account[]>;
-  getAccountById(id: string): Promise<Account | undefined>;
-  createAccount(account: InsertAccount): Promise<Account>;
-  updateAccountBalance(id: string, amount: number): Promise<Account>;
+  // Accounts (user-specific)
+  getAccounts(userId: string): Promise<Account[]>;
+  getAccountById(id: string, userId: string): Promise<Account | undefined>;
+  createAccount(account: InsertAccount, userId: string): Promise<Account>;
+  updateAccountBalance(id: string, userId: string, amount: number): Promise<Account>;
   
-  // Transactions
-  getTransactions(): Promise<Transaction[]>;
-  getTransactionById(id: string): Promise<Transaction | undefined>;
-  createTransaction(transaction: InsertTransaction): Promise<Transaction>;
-  getRecentTransactions(limit: number): Promise<Transaction[]>;
+  // Transactions (user-specific)
+  getTransactions(userId: string): Promise<Transaction[]>;
+  getTransactionById(id: string, userId: string): Promise<Transaction | undefined>;
+  createTransaction(transaction: InsertTransaction, userId: string): Promise<Transaction>;
+  getRecentTransactions(userId: string, limit: number): Promise<Transaction[]>;
   
-  // Budgets
-  getBudgets(): Promise<Budget[]>;
-  getBudgetById(id: string): Promise<Budget | undefined>;
-  createBudget(budget: InsertBudget): Promise<Budget>;
-  getCategorySpending(categoryId: string): Promise<number>;
+  // Budgets (user-specific)
+  getBudgets(userId: string): Promise<Budget[]>;
+  getBudgetById(id: string, userId: string): Promise<Budget | undefined>;
+  createBudget(budget: InsertBudget, userId: string): Promise<Budget>;
+  getCategorySpending(categoryId: string, userId: string): Promise<number>;
   
-  // Goals
-  getGoals(): Promise<Goal[]>;
-  getGoalById(id: string): Promise<Goal | undefined>;
-  createGoal(goal: InsertGoal): Promise<Goal>;
-  updateGoalProgress(id: string, amount: number): Promise<Goal>;
+  // Goals (user-specific)
+  getGoals(userId: string): Promise<Goal[]>;
+  getGoalById(id: string, userId: string): Promise<Goal | undefined>;
+  createGoal(goal: InsertGoal, userId: string): Promise<Goal>;
+  updateGoalProgress(id: string, userId: string, amount: number): Promise<Goal>;
   
-  // Dashboard
-  getDashboardStats(): Promise<DashboardStats>;
+  // Dashboard (user-specific)
+  getDashboardStats(userId: string): Promise<DashboardStats>;
 }
 
-export class MemStorage implements IStorage {
-  private categories: Map<string, Category>;
-  private accounts: Map<string, Account>;
-  private transactions: Map<string, Transaction>;
-  private budgets: Map<string, Budget>;
-  private goals: Map<string, Goal>;
-
-  constructor() {
-    this.categories = new Map();
-    this.accounts = new Map();
-    this.transactions = new Map();
-    this.budgets = new Map();
-    this.goals = new Map();
-    
-    // Initialize default categories
-    this.initializeDefaultCategories();
+export class DatabaseStorage implements IStorage {
+  // User operations (required for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
-  private async initializeDefaultCategories() {
-    const defaultCategories: InsertCategory[] = [
-      { name: 'Food', type: 'expense', icon: 'UtensilsCrossed', color: 'chart-1' },
-      { name: 'Transport', type: 'expense', icon: 'Car', color: 'chart-2' },
-      { name: 'Shopping', type: 'expense', icon: 'ShoppingBag', color: 'chart-3' },
-      { name: 'Bills', type: 'expense', icon: 'Receipt', color: 'chart-4' },
-      { name: 'Entertainment', type: 'expense', icon: 'Music', color: 'chart-5' },
-      { name: 'Healthcare', type: 'expense', icon: 'Heart', color: 'chart-1' },
-      { name: 'Education', type: 'expense', icon: 'GraduationCap', color: 'chart-2' },
-      { name: 'Travel', type: 'expense', icon: 'Plane', color: 'chart-3' },
-      { name: 'Other', type: 'expense', icon: 'MoreHorizontal', color: 'chart-4' },
-      { name: 'Salary', type: 'income', icon: 'Briefcase', color: 'chart-3' },
-      { name: 'Freelance', type: 'income', icon: 'Laptop', color: 'chart-2' },
-      { name: 'Investment', type: 'income', icon: 'TrendingUp', color: 'chart-1' },
-    ];
-
-    for (const cat of defaultCategories) {
-      await this.createCategory(cat);
-    }
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 
-  // Categories
+  // Categories (global, not user-specific)
   async getCategories(): Promise<Category[]> {
-    return Array.from(this.categories.values());
+    return await db.select().from(categories);
   }
 
   async getCategoryById(id: string): Promise<Category | undefined> {
-    return this.categories.get(id);
-  }
-
-  async createCategory(insertCategory: InsertCategory): Promise<Category> {
-    const id = randomUUID();
-    const category: Category = { ...insertCategory, id };
-    this.categories.set(id, category);
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
     return category;
   }
 
-  // Accounts
-  async getAccounts(): Promise<Account[]> {
-    return Array.from(this.accounts.values());
+  async createCategory(insertCategory: InsertCategory): Promise<Category> {
+    const [category] = await db.insert(categories).values(insertCategory).returning();
+    return category;
   }
 
-  async getAccountById(id: string): Promise<Account | undefined> {
-    return this.accounts.get(id);
+  // Accounts (user-specific)
+  async getAccounts(userId: string): Promise<Account[]> {
+    return await db.select().from(accounts).where(eq(accounts.userId, userId));
   }
 
-  async createAccount(insertAccount: InsertAccount): Promise<Account> {
-    const id = randomUUID();
-    const account: Account = { 
-      ...insertAccount, 
-      id,
-      balance: String(insertAccount.balance),
-    };
-    this.accounts.set(id, account);
+  async getAccountById(id: string, userId: string): Promise<Account | undefined> {
+    const [account] = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.id, id), eq(accounts.userId, userId)));
     return account;
   }
 
-  async updateAccountBalance(id: string, amount: number): Promise<Account> {
-    const account = this.accounts.get(id);
+  async createAccount(insertAccount: InsertAccount, userId: string): Promise<Account> {
+    const [account] = await db
+      .insert(accounts)
+      .values({
+        ...insertAccount,
+        userId,
+        balance: String(insertAccount.balance),
+      })
+      .returning();
+    return account;
+  }
+
+  async updateAccountBalance(id: string, userId: string, amount: number): Promise<Account> {
+    const account = await this.getAccountById(id, userId);
     if (!account) {
       throw new Error('Account not found');
     }
-    const updatedAccount = { ...account, balance: String(Number(account.balance) + amount) };
-    this.accounts.set(id, updatedAccount);
-    return updatedAccount;
+    const newBalance = String(Number(account.balance) + amount);
+    const [updated] = await db
+      .update(accounts)
+      .set({ balance: newBalance })
+      .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+      .returning();
+    return updated;
   }
 
-  // Transactions
-  async getTransactions(): Promise<Transaction[]> {
-    return Array.from(this.transactions.values()).sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+  // Transactions (user-specific)
+  async getTransactions(userId: string): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.userId, userId))
+      .orderBy(sql`${transactions.date} DESC`);
   }
 
-  async getTransactionById(id: string): Promise<Transaction | undefined> {
-    return this.transactions.get(id);
+  async getTransactionById(id: string, userId: string): Promise<Transaction | undefined> {
+    const [transaction] = await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+    return transaction;
   }
 
-  async createTransaction(insertTransaction: InsertTransaction): Promise<Transaction> {
-    const id = randomUUID();
-    const transaction: Transaction = { 
-      ...insertTransaction, 
-      id,
-      amount: String(insertTransaction.amount),
-      date: insertTransaction.date || new Date(),
-    };
-    this.transactions.set(id, transaction);
+  async createTransaction(insertTransaction: InsertTransaction, userId: string): Promise<Transaction> {
+    const [transaction] = await db
+      .insert(transactions)
+      .values({
+        ...insertTransaction,
+        userId,
+        amount: String(insertTransaction.amount),
+        date: insertTransaction.date || new Date(),
+      })
+      .returning();
     
     // Update account balance
     const balanceChange = transaction.type === 'income' 
       ? Number(transaction.amount) 
       : -Number(transaction.amount);
-    await this.updateAccountBalance(transaction.accountId, balanceChange);
+    await this.updateAccountBalance(transaction.accountId, userId, balanceChange);
     
     return transaction;
   }
 
-  async getRecentTransactions(limit: number): Promise<Transaction[]> {
-    const all = await this.getTransactions();
-    return all.slice(0, limit);
+  async getRecentTransactions(userId: string, limit: number): Promise<Transaction[]> {
+    return await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.userId, userId))
+      .orderBy(sql`${transactions.date} DESC`)
+      .limit(limit);
   }
 
-  // Budgets
-  async getBudgets(): Promise<Budget[]> {
-    return Array.from(this.budgets.values());
+  // Budgets (user-specific)
+  async getBudgets(userId: string): Promise<Budget[]> {
+    return await db.select().from(budgets).where(eq(budgets.userId, userId));
   }
 
-  async getBudgetById(id: string): Promise<Budget | undefined> {
-    return this.budgets.get(id);
-  }
-
-  async createBudget(insertBudget: InsertBudget): Promise<Budget> {
-    const id = randomUUID();
-    const budget: Budget = { 
-      ...insertBudget, 
-      id,
-      amount: String(insertBudget.amount),
-      startDate: insertBudget.startDate || new Date(),
-    };
-    this.budgets.set(id, budget);
+  async getBudgetById(id: string, userId: string): Promise<Budget | undefined> {
+    const [budget] = await db
+      .select()
+      .from(budgets)
+      .where(and(eq(budgets.id, id), eq(budgets.userId, userId)));
     return budget;
   }
 
-  async getCategorySpending(categoryId: string): Promise<number> {
-    const transactions = Array.from(this.transactions.values());
+  async createBudget(insertBudget: InsertBudget, userId: string): Promise<Budget> {
+    const [budget] = await db
+      .insert(budgets)
+      .values({
+        ...insertBudget,
+        userId,
+        amount: String(insertBudget.amount),
+        startDate: insertBudget.startDate || new Date(),
+      })
+      .returning();
+    return budget;
+  }
+
+  async getCategorySpending(categoryId: string, userId: string): Promise<number> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    return transactions
-      .filter(t => 
-        t.categoryId === categoryId && 
-        t.type === 'expense' &&
-        new Date(t.date) >= monthStart
-      )
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const results = await db
+      .select()
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.categoryId, categoryId),
+          eq(transactions.type, 'expense'),
+          gte(transactions.date, monthStart)
+        )
+      );
+    
+    return results.reduce((sum, t) => sum + Number(t.amount), 0);
   }
 
-  // Goals
-  async getGoals(): Promise<Goal[]> {
-    return Array.from(this.goals.values());
+  // Goals (user-specific)
+  async getGoals(userId: string): Promise<Goal[]> {
+    return await db.select().from(goals).where(eq(goals.userId, userId));
   }
 
-  async getGoalById(id: string): Promise<Goal | undefined> {
-    return this.goals.get(id);
-  }
-
-  async createGoal(insertGoal: InsertGoal): Promise<Goal> {
-    const id = randomUUID();
-    const goal: Goal = { 
-      ...insertGoal, 
-      id,
-      targetAmount: String(insertGoal.targetAmount),
-      currentAmount: String(insertGoal.currentAmount),
-    };
-    this.goals.set(id, goal);
+  async getGoalById(id: string, userId: string): Promise<Goal | undefined> {
+    const [goal] = await db
+      .select()
+      .from(goals)
+      .where(and(eq(goals.id, id), eq(goals.userId, userId)));
     return goal;
   }
 
-  async updateGoalProgress(id: string, amount: number): Promise<Goal> {
-    const goal = this.goals.get(id);
+  async createGoal(insertGoal: InsertGoal, userId: string): Promise<Goal> {
+    const [goal] = await db
+      .insert(goals)
+      .values({
+        ...insertGoal,
+        userId,
+        targetAmount: String(insertGoal.targetAmount),
+        currentAmount: String(insertGoal.currentAmount),
+      })
+      .returning();
+    return goal;
+  }
+
+  async updateGoalProgress(id: string, userId: string, amount: number): Promise<Goal> {
+    const goal = await this.getGoalById(id, userId);
     if (!goal) {
       throw new Error('Goal not found');
     }
-    const updatedGoal = { ...goal, currentAmount: String(Number(goal.currentAmount) + amount) };
-    this.goals.set(id, updatedGoal);
-    return updatedGoal;
+    const newAmount = String(Number(goal.currentAmount) + amount);
+    const [updated] = await db
+      .update(goals)
+      .set({ currentAmount: newAmount })
+      .where(and(eq(goals.id, id), eq(goals.userId, userId)))
+      .returning();
+    return updated;
   }
 
-  // Dashboard
-  async getDashboardStats(): Promise<DashboardStats> {
-    const transactions = Array.from(this.transactions.values());
+  // Dashboard (user-specific)
+  async getDashboardStats(userId: string): Promise<DashboardStats> {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    const monthlyTransactions = transactions.filter(t => new Date(t.date) >= monthStart);
+    const allTransactions = await db
+      .select()
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          gte(transactions.date, monthStart)
+        )
+      );
     
-    const monthlyIncome = monthlyTransactions
+    const monthlyIncome = allTransactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + Number(t.amount), 0);
     
-    const monthlyExpenses = monthlyTransactions
+    const monthlyExpenses = allTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + Number(t.amount), 0);
     
-    const totalBalance = Array.from(this.accounts.values())
-      .reduce((sum, a) => sum + Number(a.balance), 0);
+    const userAccounts = await db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.userId, userId));
+    
+    const totalBalance = userAccounts.reduce((sum, a) => sum + Number(a.balance), 0);
     
     // Top categories
     const categorySpending = new Map<string, number>();
-    for (const t of monthlyTransactions.filter(t => t.type === 'expense')) {
+    const categoryMap = new Map<string, string>();
+    
+    for (const t of allTransactions.filter(t => t.type === 'expense')) {
       const current = categorySpending.get(t.categoryId) || 0;
       categorySpending.set(t.categoryId, current + Number(t.amount));
+      
+      if (!categoryMap.has(t.categoryId)) {
+        const cat = await this.getCategoryById(t.categoryId);
+        if (cat) categoryMap.set(t.categoryId, cat.name);
+      }
     }
     
     const topCategories = Array.from(categorySpending.entries())
-      .map(([categoryId, amount]) => {
-        const category = this.categories.get(categoryId);
-        return {
-          category: category?.name || 'Unknown',
-          amount,
-          percentage: monthlyExpenses > 0 ? Math.round((amount / monthlyExpenses) * 100) : 0,
-        };
-      })
+      .map(([categoryId, amount]) => ({
+        category: categoryMap.get(categoryId) || 'Unknown',
+        amount,
+        percentage: monthlyExpenses > 0 ? Math.round((amount / monthlyExpenses) * 100) : 0,
+      }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
     
-    const recentTransactions = await this.getRecentTransactions(5);
+    const recentTransactions = await this.getRecentTransactions(userId, 5);
     
     return {
       totalBalance,
@@ -279,4 +322,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
