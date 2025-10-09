@@ -3,10 +3,30 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { parseExpenseFromText } from "./openai";
 import { getExchangeRates, convertCurrency } from "./currency";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { seedCategories } from "./seed";
 import { insertCategorySchema, insertAccountSchema, insertTransactionSchema, insertBudgetSchema, insertGoalSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Categories
+  // Set up authentication
+  await setupAuth(app);
+  
+  // Seed default categories if needed
+  await seedCategories();
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Categories (public - not user-specific)
   app.get("/api/categories", async (req, res) => {
     try {
       const categories = await storage.getCategories();
@@ -26,73 +46,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Accounts
-  app.get("/api/accounts", async (req, res) => {
+  // Accounts (protected - user-specific)
+  app.get("/api/accounts", isAuthenticated, async (req: any, res) => {
     try {
-      const accounts = await storage.getAccounts();
+      const userId = req.user.claims.sub;
+      const accounts = await storage.getAccounts(userId);
       res.json(accounts);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch accounts" });
     }
   });
 
-  app.post("/api/accounts", async (req, res) => {
+  app.post("/api/accounts", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const validated = insertAccountSchema.parse(req.body);
-      const account = await storage.createAccount(validated);
+      const account = await storage.createAccount(validated, userId);
       res.json(account);
     } catch (error) {
       res.status(400).json({ error: "Invalid account data" });
     }
   });
 
-  // Transactions
-  app.get("/api/transactions", async (req, res) => {
+  // Transactions (protected - user-specific)
+  app.get("/api/transactions", isAuthenticated, async (req: any, res) => {
     try {
-      const transactions = await storage.getTransactions();
+      const userId = req.user.claims.sub;
+      const transactions = await storage.getTransactions(userId);
       res.json(transactions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch transactions" });
     }
   });
 
-  app.post("/api/transactions", async (req, res) => {
+  app.post("/api/transactions", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const validated = insertTransactionSchema.parse(req.body);
-      const transaction = await storage.createTransaction(validated);
+      const transaction = await storage.createTransaction(validated, userId);
       res.json(transaction);
     } catch (error) {
       res.status(400).json({ error: "Invalid transaction data" });
     }
   });
 
-  // Budgets
-  app.get("/api/budgets", async (req, res) => {
+  // Budgets (protected - user-specific)
+  app.get("/api/budgets", isAuthenticated, async (req: any, res) => {
     try {
-      const budgets = await storage.getBudgets();
+      const userId = req.user.claims.sub;
+      const budgets = await storage.getBudgets(userId);
       res.json(budgets);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch budgets" });
     }
   });
 
-  app.post("/api/budgets", async (req, res) => {
+  app.post("/api/budgets", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const validated = insertBudgetSchema.parse(req.body);
-      const budget = await storage.createBudget(validated);
+      const budget = await storage.createBudget(validated, userId);
       res.json(budget);
     } catch (error) {
       res.status(400).json({ error: "Invalid budget data" });
     }
   });
 
-  app.get("/api/budgets/spending", async (req, res) => {
+  app.get("/api/budgets/spending", isAuthenticated, async (req: any, res) => {
     try {
-      const budgets = await storage.getBudgets();
+      const userId = req.user.claims.sub;
+      const budgets = await storage.getBudgets(userId);
       const spending: Record<string, number> = {};
       
       for (const budget of budgets) {
-        spending[budget.categoryId] = await storage.getCategorySpending(budget.categoryId);
+        spending[budget.categoryId] = await storage.getCategorySpending(budget.categoryId, userId);
       }
       
       res.json(spending);
@@ -101,37 +128,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Goals
-  app.get("/api/goals", async (req, res) => {
+  // Goals (protected - user-specific)
+  app.get("/api/goals", isAuthenticated, async (req: any, res) => {
     try {
-      const goals = await storage.getGoals();
+      const userId = req.user.claims.sub;
+      const goals = await storage.getGoals(userId);
       res.json(goals);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch goals" });
     }
   });
 
-  app.post("/api/goals", async (req, res) => {
+  app.post("/api/goals", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const validated = insertGoalSchema.parse(req.body);
-      const goal = await storage.createGoal(validated);
+      const goal = await storage.createGoal(validated, userId);
       res.json(goal);
     } catch (error) {
       res.status(400).json({ error: "Invalid goal data" });
     }
   });
 
-  // Dashboard stats
-  app.get("/api/dashboard/stats", async (req, res) => {
+  // Dashboard stats (protected - user-specific)
+  app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const stats = await storage.getDashboardStats();
+      const userId = req.user.claims.sub;
+      const stats = await storage.getDashboardStats(userId);
       res.json(stats);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
     }
   });
 
-  // Exchange rates
+  // Exchange rates (public)
   app.get("/api/exchange-rates/:base?", async (req, res) => {
     try {
       const base = req.params.base || 'INR';
@@ -152,9 +182,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Chat - AI expense parsing
-  app.post("/api/chat/parse", async (req, res) => {
+  // Chat - AI expense parsing (protected - user-specific)
+  app.post("/api/chat/parse", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { text } = req.body;
       
       if (!text || typeof text !== 'string') {
@@ -171,15 +202,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       // Get first available account or create a default one
-      let accounts = await storage.getAccounts();
+      let accounts = await storage.getAccounts(userId);
       if (accounts.length === 0) {
         const defaultAccount = await storage.createAccount({
           name: 'Main Wallet',
           type: 'wallet',
-          balance: '0',
+          balance: 0,
           currency: 'INR',
           icon: 'Wallet',
-        });
+        }, userId);
         accounts = [defaultAccount];
       }
 

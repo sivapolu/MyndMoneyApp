@@ -1,16 +1,60 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Bell, Shield, Palette } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Bell, Shield, Palette, User, LogOut } from "lucide-react";
 
 export default function Settings() {
+  const { user } = useAuth();
+
+  const handleLogout = () => {
+    window.location.href = '/api/logout';
+  };
+
   return (
     <div className="space-y-6 pb-20 lg:pb-6">
       <div>
         <h1 className="text-3xl font-display font-semibold">Settings</h1>
         <p className="text-muted-foreground mt-1">Manage your preferences</p>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+            <User className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <CardTitle>Account</CardTitle>
+            <CardDescription>Your account information</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <p className="text-sm text-muted-foreground">{user?.email || 'Not provided'}</p>
+          </div>
+          {(user?.firstName || user?.lastName) && (
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <p className="text-sm text-muted-foreground">
+                {[user?.firstName, user?.lastName].filter(Boolean).join(' ')}
+              </p>
+            </div>
+          )}
+          <div className="pt-2">
+            <Button 
+              variant="outline" 
+              onClick={handleLogout}
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Log Out
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center gap-4 space-y-0">
