@@ -1,0 +1,99 @@
+. Expense & Income Tracking
+
+Chat-style input for natural entries (“Spent ₹800 on food with Varun”).
+
+Automatic LLM-based categorization (Food, Travel, Utilities, etc.).
+
+Multi-currency handling and base currency conversions.
+
+Support for manual entry, file import/export (CSV/Excel).
+
+Tabular and summary views (daily, weekly, monthly).
+
+👨‍👩‍👧‍👦 2. Shared / Family Budgeting
+
+Add members via @mentions or invites.
+
+Split expenses equally or by percentage.
+
+Family savings goals with progress tracking.
+
+Roles and permissions (Admin, Member, Viewer).
+
+🔁 3. Recurring & Subscription Tracking
+
+Auto-detect recurring expenses (Netflix, insurance).
+
+Monthly subscription summary.
+
+Smart reminders before renewals.
+
+Control categories (“Fixed” vs. “Controllable”).
+
+📊 4. Budget Planning & Goals
+
+Category-wise budgets with alerts (50%, 80%, 100%).
+
+Goal tracking (e.g., vacation fund).
+
+Suggestions to optimize savings.
+
+💱 5. Accounts & Currency Management
+
+Manage multiple accounts (cash, card, wallet, crypto).
+
+FX conversion and real-time rate updates.
+
+Consolidated total in base currency.
+
+🤖 6. Smart & AI-Powered Enhancements
+
+Conversational parser: converts text into structured data.
+
+Adaptive LLM categorization that learns from user edits.
+
+Smart summaries and forecasts.
+
+Spending insights and suggestions (“Cancel rarely used apps”).
+
+🎨 7. UI/UX
+
+Unified chat interface for all interactions.
+
+Dashboard with pie/bar/trend charts.
+
+Privacy mode to blur balances.
+
+3-click rule simplicity; mobile-first design.
+
+💎 8. Advanced Features
+
+Investment Tracker
+
+Track mutual funds, SIPs, crypto, and stocks.
+
+Calculate gains/losses, view allocations, link to goals.
+
+Tax Planner
+
+Tag deductible expenses (80C, 80D, etc.).
+
+Generate tax summaries and proof reports.
+
+Advisory: suggestions for tax optimization.
+
+Voice Entry
+
+Add expenses via commands (“Add ₹500 to travel”).
+
+Confirmation prompt with edit/undo options.
+
+Offline speech-to-text fallback.
+
+Gamification
+
+Badges, streaks, challenges (“No Swiggy Weekend”).
+
+Leaderboards for family members.
+
+XP and levels for consistent savings behavior.
