@@ -1,9 +1,31 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, timestamp, boolean, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Categories for expense/income classification
+// Session storage table (Required for Replit Auth)
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table (Required for Replit Auth)
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Categories for expense/income classification (Global, not user-specific)
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -12,9 +34,10 @@ export const categories = pgTable("categories", {
   color: text("color").notNull(), // chart color reference
 });
 
-// Accounts (cash, card, wallet, crypto)
+// Accounts (cash, card, wallet, crypto) - User-specific
 export const accounts = pgTable("accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   type: text("type").notNull(), // 'cash', 'card', 'wallet', 'crypto'
   balance: decimal("balance", { precision: 15, scale: 2 }).notNull().default('0'),
@@ -22,9 +45,10 @@ export const accounts = pgTable("accounts", {
   icon: text("icon").notNull(),
 });
 
-// Transactions (expenses and income)
+// Transactions (expenses and income) - User-specific
 export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   type: text("type").notNull(), // 'expense' or 'income'
   categoryId: varchar("category_id").references(() => categories.id).notNull(),
@@ -38,9 +62,10 @@ export const transactions = pgTable("transactions", {
   parsedFrom: text("parsed_from"), // original chat input
 });
 
-// Budgets
+// Budgets - User-specific
 export const budgets = pgTable("budgets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   categoryId: varchar("category_id").references(() => categories.id).notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   period: text("period").notNull().default('monthly'), // 'weekly', 'monthly', 'yearly'
@@ -50,9 +75,10 @@ export const budgets = pgTable("budgets", {
   alertAt100: boolean("alert_at_100").notNull().default(true),
 });
 
-// Savings Goals
+// Savings Goals - User-specific
 export const goals = pgTable("goals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
   targetAmount: decimal("target_amount", { precision: 15, scale: 2 }).notNull(),
   currentAmount: decimal("current_amount", { precision: 15, scale: 2 }).notNull().default('0'),
@@ -64,27 +90,30 @@ export const goals = pgTable("goals", {
 // Insert schemas with proper coercion
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 
-export const insertAccountSchema = createInsertSchema(accounts).omit({ id: true }).extend({
+export const insertAccountSchema = createInsertSchema(accounts).omit({ id: true, userId: true }).extend({
   balance: z.coerce.number(),
 });
 
-export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true }).extend({
+export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, userId: true }).extend({
   amount: z.coerce.number(),
   date: z.coerce.date().optional(),
 });
 
-export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true }).extend({
+export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, userId: true }).extend({
   amount: z.coerce.number(),
   startDate: z.coerce.date().optional(),
 });
 
-export const insertGoalSchema = createInsertSchema(goals).omit({ id: true }).extend({
+export const insertGoalSchema = createInsertSchema(goals).omit({ id: true, userId: true }).extend({
   targetAmount: z.coerce.number(),
   currentAmount: z.coerce.number(),
   deadline: z.coerce.date().optional().nullable(),
 });
 
 // Types
+export type User = typeof users.$inferSelect;
+export type UpsertUser = typeof users.$inferInsert;
+
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 
