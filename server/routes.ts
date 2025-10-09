@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { parseExpenseFromText } from "./openai";
+import { getExchangeRates, convertCurrency } from "./currency";
 import { insertCategorySchema, insertAccountSchema, insertTransactionSchema, insertBudgetSchema, insertGoalSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -127,6 +128,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // Exchange rates
+  app.get("/api/exchange-rates/:base?", async (req, res) => {
+    try {
+      const base = req.params.base || 'INR';
+      const rates = await getExchangeRates(base);
+      res.json(rates);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch exchange rates" });
+    }
+  });
+
+  app.post("/api/convert-currency", async (req, res) => {
+    try {
+      const { amount, from, to } = req.body;
+      const converted = await convertCurrency(amount, from, to);
+      res.json({ amount: converted, from, to });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to convert currency" });
     }
   });
 

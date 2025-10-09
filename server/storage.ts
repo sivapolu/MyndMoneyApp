@@ -108,7 +108,11 @@ export class MemStorage implements IStorage {
 
   async createAccount(insertAccount: InsertAccount): Promise<Account> {
     const id = randomUUID();
-    const account: Account = { ...insertAccount, id };
+    const account: Account = { 
+      ...insertAccount, 
+      id,
+      balance: String(insertAccount.balance),
+    };
     this.accounts.set(id, account);
     return account;
   }
@@ -139,6 +143,7 @@ export class MemStorage implements IStorage {
     const transaction: Transaction = { 
       ...insertTransaction, 
       id,
+      amount: String(insertTransaction.amount),
       date: insertTransaction.date || new Date(),
     };
     this.transactions.set(id, transaction);
@@ -171,6 +176,7 @@ export class MemStorage implements IStorage {
     const budget: Budget = { 
       ...insertBudget, 
       id,
+      amount: String(insertBudget.amount),
       startDate: insertBudget.startDate || new Date(),
     };
     this.budgets.set(id, budget);
@@ -202,7 +208,12 @@ export class MemStorage implements IStorage {
 
   async createGoal(insertGoal: InsertGoal): Promise<Goal> {
     const id = randomUUID();
-    const goal: Goal = { ...insertGoal, id };
+    const goal: Goal = { 
+      ...insertGoal, 
+      id,
+      targetAmount: String(insertGoal.targetAmount),
+      currentAmount: String(insertGoal.currentAmount),
+    };
     this.goals.set(id, goal);
     return goal;
   }
