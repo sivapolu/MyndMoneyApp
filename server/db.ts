@@ -6,14 +6,12 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is not set");
 }
 
+// Set PGOPTIONS to configure search_path for ALL connections (works with PgBouncer)
+// This ensures public.users is searched before auth.users in Supabase
+process.env.PGOPTIONS = '-c search_path=public,auth';
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-});
-
-// Set search_path on every connection to ensure public schema is searched first
-// This is critical for production (PgBouncer) which strips the options flag
-pool.on('connect', async (client) => {
-  await client.query('SET search_path TO public,auth');
 });
 
 export const db = drizzle(pool, { schema });
