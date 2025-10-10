@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { parseExpenseFromText } from "./openai";
 import { getExchangeRates, convertCurrency } from "./currency";
-import { setupAuth, isAuthenticated, encrypt } from "./auth";
+import { setupAuth, isAuthenticated, encryptApiKey } from "./auth";
 import { seedCategories } from "./seed";
 import { insertCategorySchema, insertAccountSchema, insertTransactionSchema, insertBudgetSchema, insertGoalSchema } from "@shared/schema";
 
@@ -28,7 +28,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (openaiApiKey !== undefined) {
-        const encryptedKey = openaiApiKey ? encrypt(openaiApiKey) : '';
+        const encryptedKey = openaiApiKey ? encryptApiKey(openaiApiKey) : '';
         const updatedUser = await storage.updateUserOpenAIKey(userId, encryptedKey);
         const { password: _, ...userWithoutPassword } = updatedUser;
         return res.json(userWithoutPassword);
