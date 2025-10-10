@@ -19,7 +19,9 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 - AI integration with defensive fallback handling
 
 ## Recent Changes
-- **OCR Receipt Scanning (Latest - Oct 10)**: Implemented OCR document scanning for receipts and bills using OCR.space API. Users can upload receipt images via camera/upload button in Chat page. Auto-extracts merchant, date, total, and line items. Auto-categorizes based on merchant name. Integrates seamlessly with transaction creation flow.
+- **CSV Data Import (Latest - Oct 10)**: Added comprehensive Import Data page for uploading historical transactions via CSV. Features Papa Parse for robust CSV handling, smart column mapping with auto-detection, date format selector (DD/MM, MM/DD, ISO), accounting format support for amounts, auto-categorization, parse error surfacing, and bulk import endpoint. Helps users populate historical data for better analytics.
+- **Financial Analysis & Analytics (Oct 10)**: Added comprehensive Analytics page with Budget vs Actual comparison (bar chart showing all budget periods with spending) and Income vs Expenses trends (line chart with 12-month historical view). Includes month/year period selector for historical analysis. Backend supports date-filtered spending queries for flexible reporting.
+- **OCR Receipt Scanning (Oct 10)**: Implemented OCR document scanning for receipts and bills using OCR.space API. Users can upload receipt images via camera/upload button in Chat page. Auto-extracts merchant, date, total, and line items. Auto-categorizes based on merchant name. Integrates seamlessly with transaction creation flow.
 - **AI Intelligence (Oct 10)**: Added AI Insights page with 2-year income/expense predictions, spending pattern analysis, and personalized savings recommendations. Uses user's OpenAI API key with fallback to deterministic calculations. Fixed calculateTrends bug for <6 month histories.
 - **Historical Reports (Oct 10)**: Added Reports page with month/year selector for viewing historical financial data. Includes UTC-safe date filtering, period stats (income/expenses/savings), category breakdown, and transaction history. Fully tested with E2E verification.
 - **Multi-Expense Parsing (Oct 10)**: Added support for parsing multiple transactions from a single natural language input. Users can now enter "Cab 500, Food 300, Shopping 600" and get all three transactions parsed and previewed at once. Includes atomic batch creation with strict validation.
@@ -99,7 +101,16 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
    - **Priority Levels**: High/medium/low priority for recommendations
    - Fallback to deterministic calculations when no AI key provided
 
-9. **Settings**
+9. **Financial Analysis & Analytics**
+   - **Budget vs Actual Comparison**: Bar chart showing all budgets (weekly/monthly/yearly) with actual spending
+   - **Income vs Expenses Trends**: Line chart displaying 12-month financial trends
+   - **Month/Year Period Selection**: Historical data filtering with dropdown selectors
+   - **Dynamic Summary Cards**: Total spent, average income, savings rate for selected period
+   - **Period-Aware Insights**: Chart descriptions update to reflect selected month/year
+   - **12-Month Historical Window**: Trends show 12 months ending with selected period
+   - **Date-Filtered Queries**: Backend supports flexible date range filtering for spending analysis
+
+10. **Settings**
    - OpenAI API key input (encrypted storage with AES-256-CBC)
    - AI model selection (GPT-5, GPT-4.1, GPT-4o variants)
    - Theme toggle (light/dark mode)
@@ -160,6 +171,8 @@ All insert schemas use Zod with proper type coercion:
 - `POST /api/goals` - Create goal (protected, user-scoped)
 - `POST /api/chat/parse` - AI expense parsing (protected, user-scoped)
 - `GET /api/dashboard/stats` - Dashboard statistics (protected, user-scoped)
+- `GET /api/budgets/spending` - Budget spending with optional date filtering (protected, user-scoped)
+- `GET /api/analytics/trends` - Income/expense trends with period selection (protected, user-scoped)
 - `GET /api/exchange-rates/:base` - Currency rates (public)
 - `POST /api/convert-currency` - Currency conversion (public)
 
@@ -168,7 +181,8 @@ All insert schemas use Zod with proper type coercion:
 - All CRUD operations include userId parameter
 - Automatic account balance updates on transactions
 - Default categories seeded on startup
-- Category spending calculations for budgets
+- Category spending calculations for budgets with optional date filtering
+- `getCategorySpending()` supports startDate/endDate parameters for flexible period queries
 
 ## Design Guidelines
 The app strictly follows `design_guidelines.md` with:
