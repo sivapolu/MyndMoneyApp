@@ -28,9 +28,10 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Categories for expense/income classification (Global, not user-specific)
+// Categories for expense/income classification (Global and user-specific)
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // null = global category, value = user-specific
   name: text("name").notNull(),
   type: text("type").notNull(), // 'expense' or 'income'
   icon: text("icon").notNull(), // lucide icon name

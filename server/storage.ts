@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte, sql, or, isNull } from "drizzle-orm";
 import type {
   Category, InsertCategory,
   Account, InsertAccount,
@@ -26,10 +26,10 @@ export interface IStorage {
   updateUserAiModel(userId: string, aiModel: string): Promise<User>;
   updateUserOpenAIKey(userId: string, openaiApiKey: string): Promise<User>;
   
-  // Categories (global, not user-specific)
-  getCategories(): Promise<Category[]>;
+  // Categories (global and user-specific)
+  getCategories(userId?: string): Promise<Category[]>;
   getCategoryById(id: string): Promise<Category | undefined>;
-  createCategory(category: InsertCategory): Promise<Category>;
+  createCategory(category: InsertCategory, userId?: string): Promise<Category>;
   
   // Accounts (user-specific)
   getAccounts(userId: string): Promise<Account[]>;
@@ -122,9 +122,16 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Categories (global, not user-specific)
-  async getCategories(): Promise<Category[]> {
-    return await db.select().from(categories);
+  // Categories (global and user-specific)
+  async getCategories(userId?: string): Promise<Category[]> {
+    if (userId) {
+      // Return both global categories (userId = null) and user's custom categories
+      return await db.select().from(categories).where(
+        or(isNull(categories.userId), eq(categories.userId, userId))
+      );
+    }
+    // Return only global categories if no userId provided
+    return await db.select().from(categories).where(isNull(categories.userId));
   }
 
   async getCategoryById(id: string): Promise<Category | undefined> {
@@ -132,8 +139,11 @@ export class DatabaseStorage implements IStorage {
     return category;
   }
 
-  async createCategory(insertCategory: InsertCategory): Promise<Category> {
-    const [category] = await db.insert(categories).values(insertCategory).returning();
+  async createCategory(insertCategory: InsertCategory, userId?: string): Promise<Category> {
+    const [category] = await db.insert(categories).values({
+      ...insertCategory,
+      userId: userId || null,
+    }).returning();
     return category;
   }
 
