@@ -88,10 +88,11 @@ Base predictions on historical trends, seasonal patterns, and growth/decline pat
 export async function analyzeSpendingPatterns(
   transactions: Transaction[],
   openaiApiKey: string,
-  aiModel: string = 'gpt-4o'
+  aiModel: string = 'gpt-4o',
+  categories: any[] = []
 ): Promise<SpendingPattern[]> {
   if (!openaiApiKey) {
-    return generateFallbackPatterns(transactions);
+    return generateFallbackPatterns(transactions, categories);
   }
 
   try {
@@ -124,14 +125,14 @@ Focus on the top spending categories and identify concerning trends.`;
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
-      return generateFallbackPatterns(transactions);
+      return generateFallbackPatterns(transactions, categories);
     }
 
     const patterns = JSON.parse(content);
-    return Array.isArray(patterns) ? patterns : generateFallbackPatterns(transactions);
+    return Array.isArray(patterns) ? patterns : generateFallbackPatterns(transactions, categories);
   } catch (error) {
     console.error('Pattern analysis error:', error);
-    return generateFallbackPatterns(transactions);
+    return generateFallbackPatterns(transactions, categories);
   }
 }
 
@@ -290,16 +291,22 @@ function generateFallbackPredictions(transactions: Transaction[]): PredictionDat
   });
 }
 
-function generateFallbackPatterns(transactions: Transaction[]): SpendingPattern[] {
+function generateFallbackPatterns(transactions: Transaction[], categories: any[] = []): SpendingPattern[] {
   const categoryData = aggregateCategoryData(transactions);
   const totalMonths = new Set(transactions.map(t => new Date(t.date).toISOString().slice(0, 7))).size || 1;
 
-  return categoryData.slice(0, 5).map(cat => ({
-    category: cat.categoryId,
-    averageMonthly: Math.round(cat.total / totalMonths),
-    trend: 'stable' as const,
-    insight: `You spend an average of ₹${Math.round(cat.total / totalMonths)} per month in this category.`,
-  }));
+  return categoryData.slice(0, 5).map(cat => {
+    // Look up the category name from the categories array
+    const category = categories.find(c => c.id === cat.categoryId);
+    const categoryName = category?.name || 'Uncategorized';
+    
+    return {
+      category: categoryName, // Use name instead of ID
+      averageMonthly: Math.round(cat.total / totalMonths),
+      trend: 'stable' as const,
+      insight: `You spend an average of ₹${Math.round(cat.total / totalMonths)} per month in ${categoryName}.`,
+    };
+  });
 }
 
 function generateFallbackRecommendations(transactions: Transaction[], savingsRate: number): SavingsRecommendation[] {

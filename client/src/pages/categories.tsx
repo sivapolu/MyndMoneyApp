@@ -227,9 +227,9 @@ export default function Categories() {
             </Form>
           </DialogContent>
         </Dialog>
-      </div>
+        </div>
 
-      <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <p className="text-muted-foreground">Loading categories...</p>
@@ -295,7 +295,7 @@ export default function Categories() {
             </div>
           </div>
         )}
-      </div>
+        </div>
       </div>
     </>
   );
