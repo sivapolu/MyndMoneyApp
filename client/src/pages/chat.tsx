@@ -31,35 +31,62 @@ export default function Chat() {
 
   const parseMutation = useMutation({
     mutationFn: async (text: string) => {
-      const response = await apiRequest('POST', '/api/chat/parse', { text, type: transactionType });
+      const response = await apiRequest('POST', '/api/chat/parse-multi', { text, type: transactionType });
       return await response.json();
     },
     onSuccess: (data) => {
+      const count = data.transactions?.length || 0;
       const assistantMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `I found this transaction:`,
+        content: count === 1 ? 'I found this transaction:' : `I found ${count} transactions:`,
         timestamp: new Date(),
-        transactionPreview: data.transaction,
+        transactionPreview: data.transactions?.[0], // Keep single for backwards compat
+        transactionPreviews: data.transactions, // Array for multi-transaction support
       };
       setMessages((prev) => [...prev, assistantMessage]);
+    },
+    onError: (error: any) => {
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'system',
+        content: error.message || 'Failed to parse transaction. Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     },
   });
 
   const confirmMutation = useMutation({
-    mutationFn: async (transaction: any) => {
-      return await apiRequest('POST', '/api/transactions', transaction);
+    mutationFn: async (transactions: any[]) => {
+      // Use batch endpoint if multiple transactions, single endpoint if one
+      if (transactions.length > 1) {
+        return await apiRequest('POST', '/api/transactions/batch', { transactions });
+      } else {
+        return await apiRequest('POST', '/api/transactions', transactions[0]);
+      }
     },
-    onSuccess: () => {
+    onSuccess: (response, transactions) => {
       queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/budgets/spending'] });
+      const count = transactions.length;
       const successMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'system',
-        content: '✓ Transaction saved successfully!',
+        content: count === 1 ? '✓ Transaction saved successfully!' : `✓ ${count} transactions saved successfully!`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, successMessage]);
+    },
+    onError: (error: any) => {
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'system',
+        content: error.message || 'Failed to save transaction(s). Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     },
   });
 
@@ -78,8 +105,8 @@ export default function Chat() {
     setInput('');
   };
 
-  const handleConfirm = (transaction: any) => {
-    confirmMutation.mutate(transaction);
+  const handleConfirm = (transactions: any[]) => {
+    confirmMutation.mutate(transactions);
   };
 
   const handleReject = () => {
@@ -112,7 +139,7 @@ export default function Chat() {
   const suggestions = transactionType === 'expense'
     ? [
         'Spent ₹500 on groceries',
-        'Paid ₹2000 for electricity bill',
+        'Cab 500, Food 300, Shopping 600',
         'Coffee with friends ₹300',
       ]
     : [
@@ -170,59 +197,60 @@ export default function Chat() {
             >
               <p className="text-sm">{message.content}</p>
               
-              {message.transactionPreview && (
-                <Card className="mt-3 bg-background/50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-medium">Transaction Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 pt-0">
-                    <div className="flex items-center gap-2 text-sm">
-                      <WalletIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-semibold tabular-nums">
-                        {formatCurrency(message.transactionPreview.amount)}
-                      </span>
-                      <span className={`ml-auto px-2 py-0.5 rounded-full text-xs ${
-                        message.transactionPreview.type === 'income'
-                          ? 'bg-chart-3/10 text-chart-3'
-                          : 'bg-destructive/10 text-destructive'
-                      }`}>
-                        {message.transactionPreview.type}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Tag className="h-4 w-4" />
-                      <span>{message.transactionPreview.category}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>{formatDate(message.transactionPreview.date)}</span>
-                    </div>
-                    <p className="text-sm pt-2">{message.transactionPreview.description}</p>
-                    
-                    <div className="flex gap-2 pt-3">
-                      <Button
-                        size="sm"
-                        onClick={() => handleConfirm(message.transactionPreview)}
-                        disabled={confirmMutation.isPending}
-                        className="flex-1"
-                        data-testid="button-confirm-transaction"
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Confirm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleReject}
-                        className="flex-1"
-                        data-testid="button-reject-transaction"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+              {message.transactionPreviews && message.transactionPreviews.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {message.transactionPreviews.map((transaction: any, index: number) => (
+                    <Card key={index} className="bg-background/50">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <WalletIcon className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-semibold tabular-nums">
+                            {formatCurrency(transaction.amount)}
+                          </span>
+                          <span className={`ml-auto px-2 py-0.5 rounded-full text-xs ${
+                            transaction.type === 'income'
+                              ? 'bg-chart-3/10 text-chart-3'
+                              : 'bg-destructive/10 text-destructive'
+                          }`}>
+                            {transaction.type}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Tag className="h-4 w-4" />
+                          <span>{transaction.category}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span>{formatDate(transaction.date)}</span>
+                        </div>
+                        <p className="text-sm">{transaction.description}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                  
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => handleConfirm(message.transactionPreviews!)}
+                      disabled={confirmMutation.isPending}
+                      className="flex-1"
+                      data-testid="button-confirm-transaction"
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      {message.transactionPreviews.length > 1 ? `Confirm All (${message.transactionPreviews.length})` : 'Confirm'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleReject}
+                      className="flex-1"
+                      data-testid="button-reject-transaction"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
