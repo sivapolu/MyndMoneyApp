@@ -3,8 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { parseExpenseFromText, parseMultiExpenseFromText } from "./openai";
 import { getExchangeRates, convertCurrency } from "./currency";
-import { setupAuth, isAuthenticated, encryptApiKey } from "./auth";
+import { setupAuth, isAuthenticated, encryptApiKey, decryptApiKey } from "./auth";
 import { seedCategories } from "./seed";
+import { generatePredictions, analyzeSpendingPatterns, generateSavingsRecommendations } from "./ai-insights";
 import { insertCategorySchema, insertAccountSchema, insertTransactionSchema, insertBudgetSchema, insertGoalSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -243,6 +244,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // AI Insights (protected - user-specific)
+  app.get("/api/insights/predictions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      // Get all user transactions for analysis
+      const transactions = await storage.getTransactions(userId);
+      
+      if (transactions.length === 0) {
+        return res.json([]);
+      }
+
+      // Decrypt API key if available
+      const openaiApiKey = user.openaiApiKey ? decryptApiKey(user.openaiApiKey) : '';
+      const aiModel = user.aiModel || 'gpt-4o';
+
+      const predictions = await generatePredictions(transactions, openaiApiKey, aiModel);
+      res.json(predictions);
+    } catch (error) {
+      console.error("Predictions error:", error);
+      res.status(500).json({ error: "Failed to generate predictions" });
+    }
+  });
+
+  app.get("/api/insights/patterns", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      const transactions = await storage.getTransactions(userId);
+      const categories = await storage.getCategories(userId);
+      
+      if (transactions.length === 0) {
+        return res.json([]);
+      }
+
+      const openaiApiKey = user.openaiApiKey ? decryptApiKey(user.openaiApiKey) : '';
+      const aiModel = user.aiModel || 'gpt-4o';
+
+      const patterns = await analyzeSpendingPatterns(transactions, openaiApiKey, aiModel);
+      
+      // Enrich patterns with category names
+      const enrichedPatterns = patterns.map(pattern => {
+        const category = categories.find(c => c.id === pattern.category);
+        return {
+          ...pattern,
+          categoryName: category?.name || pattern.category,
+        };
+      });
+
+      res.json(enrichedPatterns);
+    } catch (error) {
+      console.error("Patterns error:", error);
+      res.status(500).json({ error: "Failed to analyze spending patterns" });
+    }
+  });
+
+  app.get("/api/insights/recommendations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      const transactions = await storage.getTransactions(userId);
+      
+      if (transactions.length === 0) {
+        return res.json([]);
+      }
+
+      // Calculate current savings rate
+      const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const totalExpenses = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const savingsRate = totalIncome > 0 ? (totalIncome - totalExpenses) / totalIncome : 0;
+
+      const openaiApiKey = user.openaiApiKey ? decryptApiKey(user.openaiApiKey) : '';
+      const aiModel = user.aiModel || 'gpt-4o';
+
+      const recommendations = await generateSavingsRecommendations(
+        transactions,
+        savingsRate,
+        openaiApiKey,
+        aiModel
+      );
+
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Recommendations error:", error);
+      res.status(500).json({ error: "Failed to generate recommendations" });
     }
   });
 
