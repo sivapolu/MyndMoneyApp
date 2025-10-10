@@ -60,7 +60,7 @@ export default function Auth() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Login failed");
+        throw new Error(error.error || error.message || "Login failed");
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
@@ -91,7 +91,7 @@ export default function Auth() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Signup failed");
+        throw new Error(error.error || error.message || "Signup failed");
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
