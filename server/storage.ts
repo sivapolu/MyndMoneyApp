@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, gte, sql, or, isNull } from "drizzle-orm";
+import { eq, and, gte, lte, sql, or, isNull } from "drizzle-orm";
 import type {
   Category, InsertCategory,
   Account, InsertAccount,
@@ -56,7 +56,7 @@ export interface IStorage {
   updateGoalProgress(id: string, userId: string, amount: number): Promise<Goal>;
   
   // Dashboard (user-specific)
-  getDashboardStats(userId: string): Promise<DashboardStats>;
+  getDashboardStats(userId: string, startDate?: Date, endDate?: Date): Promise<DashboardStats>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -322,9 +322,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Dashboard (user-specific)
-  async getDashboardStats(userId: string): Promise<DashboardStats> {
+  async getDashboardStats(userId: string, startDate?: Date, endDate?: Date): Promise<DashboardStats> {
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    // If no dates provided, default to current month
+    const periodStart = startDate || new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = endDate || new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     
     const allTransactions = await db
       .select()
@@ -332,7 +335,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(transactions.userId, userId),
-          gte(transactions.date, monthStart)
+          gte(transactions.date, periodStart),
+          lte(transactions.date, periodEnd)
         )
       );
     

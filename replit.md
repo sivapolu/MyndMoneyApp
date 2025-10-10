@@ -19,7 +19,8 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 - AI integration with defensive fallback handling
 
 ## Recent Changes
-- **Supabase Integration (Latest - Oct 10)**: Successfully migrated from Neon to Supabase PostgreSQL database. Updated database connection to use node-postgres driver with Transaction Pooler for optimal performance.
+- **Multi-Expense Parsing (Latest - Oct 10)**: Added support for parsing multiple transactions from a single natural language input. Users can now enter "Cab 500, Food 300, Shopping 600" and get all three transactions parsed and previewed at once. Includes atomic batch creation with strict validation.
+- **Supabase Integration (Oct 10)**: Successfully migrated from Neon to Supabase PostgreSQL database. Updated database connection to use node-postgres driver with Transaction Pooler for optimal performance.
 - **Custom Authentication (Oct 10)**: Replaced Replit Auth with email/password authentication. Users can now input their own OpenAI API keys for AI-powered expense parsing.
 - **Security Hardening**: Implemented scrypt-based key derivation for encryption, proper error handling in logout, and validation for encryption secrets
 - **AI Model Selection**: Added user preference for AI model in settings with dropdown selector (GPT-5, GPT-4.1, GPT-4o variants). Chat parsing now uses user's selected model and personal API key
@@ -49,10 +50,12 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 
 3. **AI-Powered Expense Entry**
    - Chat-style natural language input
+   - **Multi-expense parsing**: Parse multiple transactions from single input ("Cab 500, Food 300, Shopping 600")
    - Uses user's personal OpenAI API key (encrypted storage)
    - OpenAI GPT-5 parsing with fallback to Replit AI or regex
    - Auto-categorization of expenses
-   - Transaction preview and confirmation
+   - Transaction preview and confirmation with batch display
+   - Atomic batch creation with strict validation
    - Quick suggestion buttons
 
 4. **Account Management**

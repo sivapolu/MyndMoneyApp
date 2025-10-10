@@ -212,7 +212,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const stats = await storage.getDashboardStats(userId);
+      const { startDate, endDate } = req.query;
+      
+      // Parse and validate dates if provided
+      let start: Date | undefined;
+      let end: Date | undefined;
+      
+      if (startDate) {
+        start = new Date(startDate as string);
+        if (isNaN(start.getTime())) {
+          return res.status(400).json({ error: "Invalid startDate format" });
+        }
+      }
+      
+      if (endDate) {
+        end = new Date(endDate as string);
+        if (isNaN(end.getTime())) {
+          return res.status(400).json({ error: "Invalid endDate format" });
+        }
+        // Normalize to end of day
+        end.setHours(23, 59, 59, 999);
+      }
+      
+      // Guard against start > end
+      if (start && end && start > end) {
+        return res.status(400).json({ error: "startDate must be before or equal to endDate" });
+      }
+      
+      const stats = await storage.getDashboardStats(userId, start, end);
       res.json(stats);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
