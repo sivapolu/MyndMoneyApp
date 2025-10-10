@@ -21,7 +21,8 @@ export interface ParsedExpense {
 export async function parseExpenseFromText(
   text: string, 
   aiModel: string = "gpt-4.1-mini",
-  userOpenAIKey?: string | null
+  userOpenAIKey?: string | null,
+  typeHint?: 'expense' | 'income'
 ): Promise<ParsedExpense> {
   // Try to use user's personal API key first
   let openaiClient: OpenAI | null = null;
@@ -42,12 +43,14 @@ export async function parseExpenseFromText(
   
   // If no AI client available, use basic parsing
   if (!openaiClient) {
-    return basicParse(text);
+    return basicParse(text, typeHint);
   }
 
   try {
+    const typeInstruction = typeHint ? `The user indicated this is an ${typeHint}.` : '';
     const prompt = `Parse the following expense or income text and extract structured information. 
-Return a JSON object with: amount (number), type ("expense" or "income"), category (one of: Food, Transport, Shopping, Bills, Entertainment, Healthcare, Education, Travel, Salary, Freelance, Investment, Other), description (brief text), date (ISO string, default to today if not mentioned), notes (optional).
+Return a JSON object with: amount (number), type ("expense" or "income"), category (one of: Food, Transport, Shopping, Bills, Entertainment, Healthcare, Education, Travel, Salary, Freelance, Investment, Gift, Other), description (brief text), date (ISO string, default to today if not mentioned), notes (optional).
+${typeInstruction}
 
 Text: "${text}"
 
@@ -72,7 +75,7 @@ Return only valid JSON.`;
     
     return {
       amount: parsed.amount,
-      type: parsed.type || 'expense',
+      type: parsed.type || typeHint || 'expense',
       category: parsed.category || 'Other',
       description: parsed.description || text,
       date: parsed.date,
@@ -80,22 +83,23 @@ Return only valid JSON.`;
     };
   } catch (error) {
     console.error('AI parsing failed, using basic parsing:', error);
-    return basicParse(text);
+    return basicParse(text, typeHint);
   }
 }
 
 // Basic fallback parsing without AI
-function basicParse(text: string): ParsedExpense {
+function basicParse(text: string, typeHint?: 'expense' | 'income'): ParsedExpense {
   const lowerText = text.toLowerCase();
   
   // Extract amount (look for numbers with optional currency symbols)
   const amountMatch = text.match(/(?:₹|rs\.?|inr)?\s*(\d+(?:,\d+)*(?:\.\d+)?)/i);
   const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;
   
-  // Determine type
+  // Determine type (use hint if provided, otherwise detect from text)
   const isIncome = lowerText.includes('earned') || lowerText.includes('received') || 
-                   lowerText.includes('salary') || lowerText.includes('income');
-  const type = isIncome ? 'income' : 'expense';
+                   lowerText.includes('salary') || lowerText.includes('income') ||
+                   lowerText.includes('freelance') || lowerText.includes('gift');
+  const type = typeHint || (isIncome ? 'income' : 'expense');
   
   // Basic category detection
   let category = 'Other';

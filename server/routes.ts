@@ -203,7 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/chat/parse", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { text } = req.body;
+      const { text, type } = req.body;
       
       if (!text || typeof text !== 'string') {
         return res.status(400).json({ error: "Text is required" });
@@ -215,12 +215,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userOpenAIKey = user?.openaiApiKey || null;
 
       // Parse expense using OpenAI with user's preferred model and API key
-      const parsed = await parseExpenseFromText(text, aiModel, userOpenAIKey);
+      const parsed = await parseExpenseFromText(text, aiModel, userOpenAIKey, type);
       
-      // Find matching category
-      const categories = await storage.getCategories();
+      // Find matching category (prioritize matching type and name, fallback to name only)
+      const categories = await storage.getCategories(userId);
       const category = categories.find(c => 
         c.name.toLowerCase() === parsed.category.toLowerCase() && c.type === parsed.type
+      ) || categories.find(c => 
+        c.name.toLowerCase() === parsed.category.toLowerCase()
       );
       
       // Get first available account or create a default one

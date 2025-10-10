@@ -262,6 +262,10 @@ export class DatabaseStorage implements IStorage {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     
+    // Get category to determine type
+    const category = await this.getCategoryById(categoryId);
+    if (!category) return 0;
+    
     const results = await db
       .select()
       .from(transactions)
@@ -269,7 +273,7 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(transactions.userId, userId),
           eq(transactions.categoryId, categoryId),
-          eq(transactions.type, 'expense'),
+          eq(transactions.type, category.type),
           gte(transactions.date, monthStart)
         )
       );
