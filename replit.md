@@ -17,7 +17,8 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 - AI integration with defensive fallback handling
 
 ## Recent Changes
-- **Branding (Latest)**: Integrated custom MyndMoney logo with head silhouette and dollar sign design across landing page and sidebar
+- **AI Model Selection (Latest)**: Added user preference for AI model in settings with dropdown selector (GPT-5, GPT-4.1, GPT-4o variants). Chat parsing now uses user's selected model.
+- **Branding**: Integrated custom MyndMoney logo with head silhouette and dollar sign design across landing page and sidebar
 - **Authentication**: Implemented Replit Auth with PostgreSQL, user signup/login, data isolation per user, landing page for logged-out users, and logout functionality
 - **Schema & Frontend (Task 1)**: Defined complete data models for transactions, budgets, accounts, goals, and categories. Built all React components with exceptional visual quality following design_guidelines.md
 - **Backend Implementation (Task 2)**: Implemented all API endpoints, OpenAI AI integration with fallback parsing, currency exchange rate API, and business logic
