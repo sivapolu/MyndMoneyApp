@@ -1,7 +1,9 @@
 import FormData from 'form-data';
 import OpenAI from 'openai';
 import { decryptApiKey } from './auth';
-import * as pdfParse from 'pdf-parse';
+
+// pdf-parse is a CommonJS module, need to use require
+const pdfParse = require('pdf-parse');
 
 interface OCRResult {
   merchant?: string;
@@ -158,7 +160,7 @@ export async function extractDataFromPDF(
 
   try {
     // Extract text from PDF
-    const pdfData = await (pdfParse as any)(pdfBuffer);
+    const pdfData = await pdfParse(pdfBuffer);
     const extractedText = pdfData.text;
 
     if (!extractedText || extractedText.trim().length === 0) {
