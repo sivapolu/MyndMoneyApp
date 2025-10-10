@@ -191,11 +191,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/budgets/spending", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const { startDate, endDate } = req.query;
+      
+      // Parse and validate dates if provided
+      let start: Date | undefined;
+      let end: Date | undefined;
+      
+      if (startDate) {
+        start = new Date(startDate as string);
+        if (isNaN(start.getTime())) {
+          return res.status(400).json({ error: "Invalid startDate format" });
+        }
+      }
+      
+      if (endDate) {
+        end = new Date(endDate as string);
+        if (isNaN(end.getTime())) {
+          return res.status(400).json({ error: "Invalid endDate format" });
+        }
+      }
+      
       const budgets = await storage.getBudgets(userId);
       const spending: Record<string, number> = {};
       
       for (const budget of budgets) {
-        spending[budget.categoryId] = await storage.getCategorySpending(budget.categoryId, userId);
+        spending[budget.categoryId] = await storage.getCategorySpending(budget.categoryId, userId, start, end);
       }
       
       res.json(spending);
@@ -620,10 +640,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/analytics/trends", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const { startDate, endDate } = req.query;
+      
       const transactions = await storage.getTransactions(userId);
 
       if (transactions.length === 0) {
         return res.json([]);
+      }
+
+      // Parse dates if provided (selected month)
+      let selectedDate: Date | undefined;
+      if (startDate && endDate) {
+        selectedDate = new Date(startDate as string);
       }
 
       // Group transactions by month
@@ -647,12 +675,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      // Get last 12 months
+      // Get 12 months ending with selected month (or current month if not specified)
       const result = [];
-      const now = new Date();
+      const endMonth = selectedDate || new Date();
       
       for (let i = 11; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const date = new Date(endMonth.getFullYear(), endMonth.getMonth() - i, 1);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const data = monthlyData.get(monthKey) || { income: 0, expenses: 0 };
         

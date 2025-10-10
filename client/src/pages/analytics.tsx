@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, DollarSign, PiggyBank } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Calendar as CalendarIcon } from "lucide-react";
 import type { Budget, Category } from "@shared/schema";
 
 interface MonthlyTrend {
@@ -19,6 +21,23 @@ const COLORS = {
 };
 
 export default function Analytics() {
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+
+  // Generate month options
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  // Generate year options (current year and 2 years back)
+  const years = Array.from({ length: 3 }, (_, i) => currentDate.getFullYear() - i);
+
+  // Calculate date range for selected period (use UTC to avoid timezone shifts)
+  const startDate = new Date(Date.UTC(selectedYear, selectedMonth, 1));
+  const endDate = new Date(Date.UTC(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999));
+
   const { data: budgets } = useQuery<Budget[]>({
     queryKey: ['/api/budgets'],
   });
@@ -28,11 +47,29 @@ export default function Analytics() {
   });
 
   const { data: spending } = useQuery<Record<string, number>>({
-    queryKey: ['/api/budgets/spending'],
+    queryKey: ['/api/budgets/spending', startDate.toISOString(), endDate.toISOString()],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      });
+      const response = await fetch(`/api/budgets/spending?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch spending');
+      return response.json();
+    },
   });
 
   const { data: trends, isLoading } = useQuery<MonthlyTrend[]>({
-    queryKey: ['/api/analytics/trends'],
+    queryKey: ['/api/analytics/trends', startDate.toISOString(), endDate.toISOString()],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      });
+      const response = await fetch(`/api/analytics/trends?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch trends');
+      return response.json();
+    },
   });
 
   const formatCurrency = (amount: number) => {
@@ -111,6 +148,42 @@ export default function Analytics() {
         <p className="text-muted-foreground mt-1">Budget performance and income trends</p>
       </div>
 
+      {/* Period Selector */}
+      <Card data-testid="card-period-selector">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-medium">Period:</span>
+            </div>
+            <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+              <SelectTrigger className="w-[150px]" data-testid="select-month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((month, index) => (
+                  <SelectItem key={index} value={index.toString()}>
+                    {month}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+              <SelectTrigger className="w-[120px]" data-testid="select-year">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card data-testid="card-total-budget">
@@ -132,7 +205,7 @@ export default function Analytics() {
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-spent">{formatCurrency(totalActual)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {totalBudget > 0 ? `${Math.round((totalActual / totalBudget) * 100)}% of budget` : 'No budget set'}
+              {months[selectedMonth]} {selectedYear} spending
             </p>
           </CardContent>
         </Card>
@@ -166,7 +239,7 @@ export default function Analytics() {
         <Card data-testid="card-budget-vs-actual">
           <CardHeader>
             <CardTitle>Budget vs Actual</CardTitle>
-            <CardDescription>Budget comparison across all categories and periods</CardDescription>
+            <CardDescription>{months[selectedMonth]} {selectedYear} spending vs budgets</CardDescription>
           </CardHeader>
           <CardContent>
             {budgetVsActualData.length > 0 ? (
@@ -210,7 +283,7 @@ export default function Analytics() {
         <Card data-testid="card-income-vs-expenses">
           <CardHeader>
             <CardTitle>Income vs Expenses</CardTitle>
-            <CardDescription>12-month financial trend analysis</CardDescription>
+            <CardDescription>12-month trend ending {months[selectedMonth]} {selectedYear}</CardDescription>
           </CardHeader>
           <CardContent>
             {incomeVsExpensesData.length > 0 && incomeVsExpensesData.some(d => d.income > 0 || d.expenses > 0) ? (
