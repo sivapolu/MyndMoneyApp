@@ -1,10 +1,13 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, timestamp, boolean, index, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, pgSchema, text, varchar, decimal, timestamp, boolean, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Define public schema explicitly to avoid conflicts with auth.users in Supabase
+const publicSchema = pgSchema("public");
+
 // Session storage table (Required for Replit Auth)
-export const sessions = pgTable(
+export const sessions = publicSchema.table(
   "sessions",
   {
     sid: varchar("sid").primaryKey(),
@@ -14,8 +17,8 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table
-export const users = pgTable("users", {
+// User storage table - explicitly in public schema to avoid auth.users conflict
+export const users = publicSchema.table("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique().notNull(),
   password: varchar("password").notNull(), // Hashed password
@@ -31,7 +34,7 @@ export const users = pgTable("users", {
 });
 
 // Categories for expense/income classification (Global and user-specific)
-export const categories = pgTable("categories", {
+export const categories = publicSchema.table("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id), // null = global category, value = user-specific
   name: text("name").notNull(),
@@ -41,7 +44,7 @@ export const categories = pgTable("categories", {
 });
 
 // Accounts (cash, card, wallet, crypto) - User-specific
-export const accounts = pgTable("accounts", {
+export const accounts = publicSchema.table("accounts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
@@ -52,7 +55,7 @@ export const accounts = pgTable("accounts", {
 });
 
 // Transactions (expenses and income) - User-specific
-export const transactions = pgTable("transactions", {
+export const transactions = publicSchema.table("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
@@ -69,7 +72,7 @@ export const transactions = pgTable("transactions", {
 });
 
 // Budgets - User-specific
-export const budgets = pgTable("budgets", {
+export const budgets = publicSchema.table("budgets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   categoryId: varchar("category_id").references(() => categories.id).notNull(),
@@ -82,7 +85,7 @@ export const budgets = pgTable("budgets", {
 });
 
 // Savings Goals - User-specific
-export const goals = pgTable("goals", {
+export const goals = publicSchema.table("goals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   name: text("name").notNull(),
