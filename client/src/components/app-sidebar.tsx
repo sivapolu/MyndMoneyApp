@@ -1,4 +1,4 @@
-import { Home, MessageSquare, PieChart, Wallet, Target, FolderTree, Settings } from "lucide-react";
+import { Home, MessageSquare, PieChart, Wallet, Target, FolderTree, BarChart3, Settings } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   Sidebar,
@@ -44,6 +44,11 @@ const menuItems = [
     title: "Categories",
     url: "/categories",
     icon: FolderTree,
+  },
+  {
+    title: "Reports",
+    url: "/reports",
+    icon: BarChart3,
   },
 ];
 
