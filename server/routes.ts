@@ -723,6 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Prepare transaction data from OCR result
+      const detectedCurrency = ocrResult.currency || 'INR';
       const transaction: any = {
         amount: ocrResult.total || 0,
         type: 'expense',
@@ -731,7 +732,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accountId: accounts[0].id,
         description: ocrResult.merchant || 'Receipt scan',
         date: ocrResult.date ? new Date(ocrResult.date).toISOString() : new Date().toISOString(),
-        notes: `Scanned from receipt${ocrResult.items ? `\n\nItems:\n${ocrResult.items.map(item => `- ${item.description}: ₹${item.amount}`).join('\n')}` : ''}`,
+        currency: detectedCurrency,
+        notes: `Scanned from receipt${ocrResult.items ? `\n\nItems:\n${ocrResult.items.map(item => `- ${item.description}: ${detectedCurrency} ${item.amount}`).join('\n')}` : ''}`,
       };
 
       // Try to auto-categorize based on merchant name or items
@@ -752,6 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           merchant: ocrResult.merchant,
           date: ocrResult.date,
           total: ocrResult.total,
+          currency: ocrResult.currency,
           items: ocrResult.items,
           confidence: ocrResult.total ? 'high' : 'low',
         },
