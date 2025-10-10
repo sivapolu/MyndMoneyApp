@@ -92,7 +92,7 @@ export const goals = pgTable("goals", {
 });
 
 // Insert schemas with proper coercion
-export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
 
 export const insertAccountSchema = createInsertSchema(accounts).omit({ id: true, userId: true }).extend({
   balance: z.coerce.number(),
