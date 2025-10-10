@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, Loader2, Check, X, Calendar, Tag, Wallet as WalletIcon, TrendingDown, TrendingUp } from "lucide-react";
+import { Send, Loader2, Check, X, Calendar, Tag, Wallet as WalletIcon, TrendingDown, TrendingUp, Camera, Upload } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { ChatMessage } from "@shared/schema";
 
@@ -19,6 +19,7 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const scrollToBottom = () => {
@@ -90,6 +91,46 @@ export default function Chat() {
     },
   });
 
+  const ocrScanMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('receipt', file);
+      
+      const response = await fetch('/api/ocr/scan', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'OCR scan failed');
+      }
+      
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      const assistantMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `Receipt scanned successfully! I found:${data.ocrResult?.merchant ? `\n📍 Merchant: ${data.ocrResult.merchant}` : ''}${data.ocrResult?.total ? `\n💰 Total: ₹${data.ocrResult.total}` : ''}`,
+        timestamp: new Date(),
+        transactionPreview: data.transaction,
+        transactionPreviews: [data.transaction],
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    },
+    onError: (error: any) => {
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'system',
+        content: error.message || 'Failed to scan receipt. Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    },
+  });
+
   const handleSend = () => {
     if (!input.trim()) return;
 
@@ -117,6 +158,37 @@ export default function Chat() {
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, rejectMessage]);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'system',
+        content: 'Please upload an image file (JPG, PNG, etc.)',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
+    const uploadMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: `📸 Uploaded receipt: ${file.name}`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, uploadMessage]);
+    
+    ocrScanMutation.mutate(file);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -271,6 +343,29 @@ export default function Chat() {
       <div className="fixed bottom-0 left-0 right-0 lg:relative p-4 bg-background border-t border-border lg:border-t-0">
         <div className="max-w-4xl mx-auto">
           <div className="flex gap-2 items-center bg-card border border-card-border rounded-full px-4 py-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+              data-testid="input-file-upload"
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={ocrScanMutation.isPending}
+              className="rounded-full shrink-0"
+              data-testid="button-upload-receipt"
+              title="Scan receipt"
+            >
+              {ocrScanMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Camera className="h-4 w-4" />
+              )}
+            </Button>
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}

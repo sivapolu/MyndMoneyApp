@@ -7,6 +7,23 @@ import { setupAuth, isAuthenticated, encryptApiKey, decryptApiKey } from "./auth
 import { seedCategories } from "./seed";
 import { generatePredictions, analyzeSpendingPatterns, generateSavingsRecommendations } from "./ai-insights";
 import { insertCategorySchema, insertAccountSchema, insertTransactionSchema, insertBudgetSchema, insertGoalSchema } from "@shared/schema";
+import { processReceiptImage } from "./ocr";
+import multer from "multer";
+
+// Configure multer for file uploads (store in memory)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max file size
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
@@ -524,6 +541,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Parse error:', error);
       res.status(500).json({ error: error.message || "Failed to parse expense" });
+    }
+  });
+
+  // OCR - Receipt/Bill scanning (protected - user-specific)
+  app.post("/api/ocr/scan", isAuthenticated, upload.single('receipt'), async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ error: "No image file uploaded" });
+      }
+
+      // Get user's OCR API key (optional - falls back to free tier)
+      const user = await storage.getUser(userId);
+      const ocrApiKey = user?.openaiApiKey ? decryptApiKey(user.openaiApiKey) : undefined;
+
+      // Process receipt image with OCR
+      const ocrResult = await processReceiptImage(file.buffer, ocrApiKey);
+      
+      // Parse the extracted data into transaction format
+      const categories = await storage.getCategories(userId);
+      let accounts = await storage.getAccounts(userId);
+      
+      if (accounts.length === 0) {
+        const defaultAccount = await storage.createAccount({
+          name: 'Main Wallet',
+          type: 'wallet',
+          balance: 0,
+          currency: 'INR',
+          icon: 'Wallet',
+        }, userId);
+        accounts = [defaultAccount];
+      }
+
+      // Prepare transaction data from OCR result
+      const transaction: any = {
+        amount: ocrResult.total || 0,
+        type: 'expense',
+        category: 'Other',
+        categoryId: categories.find(c => c.name === 'Other')?.id || '',
+        accountId: accounts[0].id,
+        description: ocrResult.merchant || 'Receipt scan',
+        date: ocrResult.date ? new Date(ocrResult.date).toISOString() : new Date().toISOString(),
+        notes: `Scanned from receipt${ocrResult.items ? `\n\nItems:\n${ocrResult.items.map(item => `- ${item.description}: ₹${item.amount}`).join('\n')}` : ''}`,
+      };
+
+      // Try to auto-categorize based on merchant name or items
+      if (ocrResult.merchant) {
+        const merchantLower = ocrResult.merchant.toLowerCase();
+        const matchedCategory = categories.find(c => 
+          merchantLower.includes(c.name.toLowerCase()) && c.type === 'expense'
+        );
+        if (matchedCategory) {
+          transaction.category = matchedCategory.name;
+          transaction.categoryId = matchedCategory.id;
+        }
+      }
+
+      res.json({ 
+        transaction,
+        ocrResult: {
+          merchant: ocrResult.merchant,
+          date: ocrResult.date,
+          total: ocrResult.total,
+          items: ocrResult.items,
+          confidence: ocrResult.total ? 'high' : 'low',
+        },
+      });
+    } catch (error: any) {
+      console.error('OCR scan error:', error);
+      res.status(500).json({ error: error.message || "Failed to scan receipt" });
     }
   });
 
