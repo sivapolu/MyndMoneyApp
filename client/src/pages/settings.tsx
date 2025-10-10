@@ -2,13 +2,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, Shield, Palette, User, LogOut, Sparkles } from "lucide-react";
+import { Bell, Shield, Palette, User, LogOut, Sparkles, Key } from "lucide-react";
+import { useState } from "react";
 
 const AI_MODELS = [
   { value: "gpt-5", label: "GPT-5 (Latest, Most Capable)" },
@@ -23,13 +25,14 @@ export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [apiKey, setApiKey] = useState("");
 
   const updateAiModelMutation = useMutation({
     mutationFn: async (aiModel: string) => {
       return await apiRequest('PATCH', '/api/auth/user', { aiModel });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
       toast({
         title: "Success",
         description: "AI model preference updated successfully",
@@ -44,12 +47,45 @@ export default function Settings() {
     },
   });
 
+  const updateApiKeyMutation = useMutation({
+    mutationFn: async (openaiApiKey: string) => {
+      return await apiRequest('PATCH', '/api/auth/user', { openaiApiKey });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      setApiKey("");
+      toast({
+        title: "Success",
+        description: "OpenAI API key updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update OpenAI API key",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleLogout = () => {
     window.location.href = '/api/logout';
   };
 
   const handleModelChange = (value: string) => {
     updateAiModelMutation.mutate(value);
+  };
+
+  const handleApiKeySubmit = () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid API key",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateApiKeyMutation.mutate(apiKey);
   };
 
   return (
@@ -102,10 +138,37 @@ export default function Settings() {
           </div>
           <div>
             <CardTitle>AI Settings</CardTitle>
-            <CardDescription>Choose your preferred AI model for expense parsing</CardDescription>
+            <CardDescription>Configure your AI-powered expense parsing</CardDescription>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label>OpenAI API Key</Label>
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder={user?.openaiApiKey ? "••••••••••••••••" : "Enter your OpenAI API key"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                data-testid="input-openai-key"
+              />
+              <Button 
+                onClick={handleApiKeySubmit}
+                disabled={updateApiKeyMutation.isPending}
+                data-testid="button-save-openai-key"
+              >
+                <Key className="h-4 w-4 mr-2" />
+                {updateApiKeyMutation.isPending ? "Saving..." : "Save"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Your personal OpenAI API key for AI-powered expense parsing. Get one at{" "}
+              <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                platform.openai.com
+              </a>
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label>AI Model</Label>
             <Select 
