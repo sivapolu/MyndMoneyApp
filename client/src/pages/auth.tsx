@@ -156,19 +156,19 @@ export default function Auth() {
         throw new Error(result.error || "Failed to request reset");
       }
 
-      setResetToken(result.token);
       setResetEmail(data.email);
+      setResetToken("sent"); // Flag to show email sent state
       resetConfirmForm.setValue("email", data.email);
       
       toast({
-        title: "Reset Token Generated",
-        description: `Your reset token is: ${result.token}`,
-        duration: 30000, // Show for 30 seconds
+        title: "Email Sent",
+        description: result.message || "Check your email for the reset token",
+        duration: 10000,
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to request reset",
+        description: error instanceof Error ? error.message : "Failed to send reset email",
         variant: "destructive",
       });
     } finally {
@@ -400,7 +400,7 @@ export default function Auth() {
                       disabled={isLoading}
                       data-testid="button-request-reset"
                     >
-                      {isLoading ? "Generating token..." : "Get Reset Token"}
+                      {isLoading ? "Sending email..." : "Send Reset Token"}
                     </Button>
                   </form>
                 </Form>
@@ -408,9 +408,8 @@ export default function Auth() {
                 <Form {...resetConfirmForm}>
                   <form onSubmit={resetConfirmForm.handleSubmit(handleResetConfirm)} className="space-y-4">
                     <div className="p-4 bg-primary/10 rounded-lg border border-primary/20 mb-4">
-                      <p className="text-sm font-medium mb-2">Reset Token Generated</p>
-                      <p className="text-2xl font-mono font-bold text-primary tracking-wider">{resetToken}</p>
-                      <p className="text-xs text-muted-foreground mt-2">Copy this token and enter it below with your new password</p>
+                      <p className="text-sm font-medium mb-2">Email Sent</p>
+                      <p className="text-sm text-muted-foreground">Check your email for the 6-digit reset token</p>
                     </div>
                     <FormField
                       control={resetConfirmForm.control}
