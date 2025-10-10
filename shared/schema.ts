@@ -24,6 +24,8 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   aiModel: varchar("ai_model").default("gpt-4.1-mini"), // User's preferred AI model for expense parsing
   openaiApiKey: varchar("openai_api_key"), // User's personal OpenAI API key (encrypted)
+  resetToken: varchar("reset_token"), // Password reset token
+  resetTokenExpiry: timestamp("reset_token_expiry"), // Token expiration time
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

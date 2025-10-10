@@ -25,6 +25,8 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserAiModel(userId: string, aiModel: string): Promise<User>;
   updateUserOpenAIKey(userId: string, openaiApiKey: string): Promise<User>;
+  setPasswordResetToken(userId: string, token: string, expiry: Date): Promise<User>;
+  resetUserPassword(userId: string, hashedPassword: string): Promise<User>;
   
   // Categories (global and user-specific)
   getCategories(userId?: string): Promise<Category[]>;
@@ -117,6 +119,33 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set({ openaiApiKey, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async setPasswordResetToken(userId: string, token: string, expiry: Date): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        resetToken: token, 
+        resetTokenExpiry: expiry,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async resetUserPassword(userId: string, hashedPassword: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null,
+        updatedAt: new Date() 
+      })
       .where(eq(users.id, userId))
       .returning();
     return user;
