@@ -44,8 +44,8 @@ function Router() {
   // Show main app for authenticated users
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/chat" component={Chat} />
+      <Route path="/" component={Chat} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/budgets" component={Budgets} />
       <Route path="/accounts" component={Accounts} />
       <Route path="/goals" component={Goals} />
@@ -67,19 +67,11 @@ function AuthenticatedApp() {
   };
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
+    <SidebarProvider defaultOpen={false} style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between p-4 border-b border-border lg:p-4 shrink-0">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="lg:flex" />
-            <ThemeToggle />
-          </header>
-          <main className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-7xl mx-auto">
-              <Router />
-            </div>
-          </main>
+          <Router />
         </div>
       </div>
       <BottomNav />

@@ -16,14 +16,14 @@ import logoPath from "@assets/Untitled design_1760082821987.png";
 
 const menuItems = [
   {
-    title: "Dashboard",
+    title: "Chat",
     url: "/",
-    icon: Home,
+    icon: MessageSquare,
   },
   {
-    title: "Add Expense",
-    url: "/chat",
-    icon: MessageSquare,
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: Home,
   },
   {
     title: "Budgets",
