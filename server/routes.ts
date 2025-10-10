@@ -166,6 +166,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk import for CSV uploads (protected - user-specific)
+  app.post("/api/transactions/bulk", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { transactions } = req.body;
+      
+      if (!Array.isArray(transactions)) {
+        return res.status(400).json({ error: "Transactions must be an array" });
+      }
+
+      // Get user's accounts or create default
+      let accounts = await storage.getAccounts(userId);
+      let defaultAccount = accounts[0];
+      
+      if (!defaultAccount) {
+        // Create default account for imports
+        defaultAccount = await storage.createAccount({
+          name: "Imported Transactions",
+          type: "card",
+          balance: 0,
+          currency: "INR"
+        }, userId);
+      }
+
+      // Validate and create transactions
+      const createdTransactions = [];
+      const errors: { index: number; error: string }[] = [];
+      
+      for (let i = 0; i < transactions.length; i++) {
+        try {
+          const txn = transactions[i];
+          const validated = insertTransactionSchema.parse({
+            ...txn,
+            accountId: defaultAccount.id,
+            // Ensure categoryId is valid or undefined
+            categoryId: txn.categoryId || undefined,
+          });
+          
+          const created = await storage.createTransaction(validated, userId);
+          createdTransactions.push(created);
+        } catch (error: any) {
+          errors.push({ 
+            index: i, 
+            error: error.message || "Invalid transaction data" 
+          });
+        }
+      }
+
+      res.json({ 
+        success: true,
+        imported: createdTransactions.length,
+        failed: errors.length,
+        errors: errors.length > 0 ? errors : undefined,
+        transactions: createdTransactions
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to import transactions" });
+    }
+  });
+
   // Budgets (protected - user-specific)
   app.get("/api/budgets", isAuthenticated, async (req: any, res) => {
     try {

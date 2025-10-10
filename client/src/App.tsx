@@ -18,6 +18,7 @@ import Categories from "@/pages/categories";
 import Reports from "@/pages/reports";
 import Analytics from "@/pages/analytics";
 import Insights from "@/pages/insights";
+import ImportPage from "@/pages/import";
 import Settings from "@/pages/settings";
 import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
@@ -52,6 +53,7 @@ function Router() {
       <Route path="/reports" component={Reports} />
       <Route path="/analytics" component={Analytics} />
       <Route path="/insights" component={Insights} />
+      <Route path="/import" component={ImportPage} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
