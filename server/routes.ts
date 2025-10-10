@@ -209,8 +209,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Text is required" });
       }
 
-      // Parse expense using OpenAI
-      const parsed = await parseExpenseFromText(text);
+      // Get user's AI model preference
+      const user = await storage.getUser(userId);
+      const aiModel = user?.aiModel || "gpt-4.1-mini";
+
+      // Parse expense using OpenAI with user's preferred model
+      const parsed = await parseExpenseFromText(text, aiModel);
       
       // Find matching category
       const categories = await storage.getCategories();

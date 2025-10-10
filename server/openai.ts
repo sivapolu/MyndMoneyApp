@@ -16,7 +16,7 @@ export interface ParsedExpense {
   notes?: string;
 }
 
-export async function parseExpenseFromText(text: string): Promise<ParsedExpense> {
+export async function parseExpenseFromText(text: string, aiModel: string = "gpt-4.1-mini"): Promise<ParsedExpense> {
   // Check if AI integration is configured
   if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
     // Fallback to basic parsing without AI
@@ -32,7 +32,7 @@ Text: "${text}"
 Return only valid JSON.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: aiModel,
       messages: [
         { role: "system", content: "You are a financial assistant that parses expense and income entries from natural language." },
         { role: "user", content: prompt }
