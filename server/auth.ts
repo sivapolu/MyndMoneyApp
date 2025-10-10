@@ -189,7 +189,7 @@ export function setupAuth(app: Express) {
       if (!user) {
         // Don't reveal if email exists or not (security best practice)
         return res.status(200).json({ 
-          message: "If an account exists with this email, a reset token will be generated" 
+          message: "If an account exists with this email, a reset token has been sent" 
         });
       }
 
@@ -199,13 +199,32 @@ export function setupAuth(app: Express) {
 
       await storage.setPasswordResetToken(user.id, resetToken, resetTokenExpiry);
 
-      // In a real app, you'd send this via email
-      // For now, we'll return it (DEVELOPMENT ONLY)
-      res.status(200).json({ 
-        message: "Reset token generated",
-        token: resetToken, // TODO: Remove in production, send via email instead
-        email: user.email
-      });
+      // Send token via email API
+      try {
+        const emailResponse = await fetch("http://app.c360.zone/tekroi_api/api/email_send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mail: user.email,
+            subject: "MyndMoney - Password Reset Token",
+            message: `Your password reset token is: ${resetToken}\n\nThis token will expire in 30 minutes.\n\nIf you did not request this reset, please ignore this email.`
+          })
+        });
+
+        if (!emailResponse.ok) {
+          throw new Error("Email API failed");
+        }
+
+        res.status(200).json({ 
+          message: "Reset token has been sent to your email",
+          email: user.email
+        });
+      } catch (emailError) {
+        console.error("Email sending error:", emailError);
+        // Clear the token since we couldn't send it
+        await storage.setPasswordResetToken(user.id, "", new Date(0));
+        res.status(500).json({ error: "Failed to send reset email. Please try again." });
+      }
     } catch (error) {
       console.error("Reset token generation error:", error);
       res.status(500).json({ error: "Failed to generate reset token" });
