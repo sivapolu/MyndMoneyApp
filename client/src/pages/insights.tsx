@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Lightbulb, Target, AlertTriangle, LineChart, Sparkles } from "lucide-react";
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { PageHeader } from "@/components/page-header";
 
 interface PredictionData {
   month: string;
@@ -108,8 +109,10 @@ export default function Insights() {
   const hasData = (predictions && predictions.length > 0) || (patterns && patterns.length > 0) || (recommendations && recommendations.length > 0);
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      {/* Header */}
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        {/* Header */}
       <Card className="relative overflow-hidden border-0">
         <div className="absolute inset-0 bg-gradient-to-br from-chart-1 via-chart-4 to-chart-2 opacity-90"></div>
         <CardHeader className="relative z-10">
@@ -275,6 +278,7 @@ export default function Insights() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }

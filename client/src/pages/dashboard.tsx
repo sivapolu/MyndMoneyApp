@@ -8,6 +8,7 @@ import { Eye, EyeOff, TrendingUp, TrendingDown, Wallet, PiggyBank, AlertCircle, 
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from "recharts";
 import type { DashboardStats, Transaction, Budget, Category } from "@shared/schema";
 import { Link } from "wouter";
+import { PageHeader } from "@/components/page-header";
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -104,8 +105,10 @@ export default function Dashboard() {
   const monthlySavings = stats?.monthlySavings || 0;
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      {/* Hero Balance Card */}
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        {/* Hero Balance Card */}
       <Card className="relative overflow-hidden border-0">
         <div className="absolute inset-0 bg-gradient-to-br from-chart-1 via-chart-4 to-chart-2 opacity-90"></div>
         <CardHeader className="relative z-10 pb-4">
@@ -439,6 +442,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }

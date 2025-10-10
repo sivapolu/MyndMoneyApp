@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, DollarSign, PiggyBank, Calendar as CalendarIcon } from "lucide-react";
 import type { Budget, Category } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 interface MonthlyTrend {
   month: string;
@@ -141,8 +142,10 @@ export default function Analytics() {
   }
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      {/* Header */}
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        {/* Header */}
       <div>
         <h1 className="text-3xl font-display font-semibold">Financial Analytics</h1>
         <p className="text-muted-foreground mt-1">Budget performance and income trends</p>
@@ -370,6 +373,7 @@ export default function Analytics() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }
