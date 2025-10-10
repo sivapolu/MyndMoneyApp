@@ -19,7 +19,8 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 - AI integration with defensive fallback handling
 
 ## Recent Changes
-- **Custom Authentication (Latest - Oct 10)**: Replaced Replit Auth with email/password authentication. Users can now input their own OpenAI API keys for AI-powered expense parsing.
+- **Supabase Integration (Latest - Oct 10)**: Successfully migrated from Neon to Supabase PostgreSQL database. Updated database connection to use node-postgres driver with Transaction Pooler for optimal performance.
+- **Custom Authentication (Oct 10)**: Replaced Replit Auth with email/password authentication. Users can now input their own OpenAI API keys for AI-powered expense parsing.
 - **Security Hardening**: Implemented scrypt-based key derivation for encryption, proper error handling in logout, and validation for encryption secrets
 - **AI Model Selection**: Added user preference for AI model in settings with dropdown selector (GPT-5, GPT-4.1, GPT-4o variants). Chat parsing now uses user's selected model and personal API key
 - **Branding**: Integrated custom MyndMoney logo with head silhouette and dollar sign design across landing page and sidebar
@@ -84,7 +85,7 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 
 ### Technical Stack
 - **Frontend**: React, Wouter, TanStack Query, Shadcn UI, Tailwind CSS
-- **Backend**: Express.js, PostgreSQL (Neon), Drizzle ORM
+- **Backend**: Express.js, PostgreSQL (Supabase), Drizzle ORM
 - **Authentication**: Passport.js with Local Strategy (email/password)
 - **Security**: Scrypt password hashing, AES-256-CBC API key encryption with KDF
 - **AI**: User's personal OpenAI API key with fallback to Replit AI Integrations or regex
