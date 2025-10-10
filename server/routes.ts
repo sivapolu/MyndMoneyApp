@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { parseExpenseFromText } from "./openai";
+import { parseExpenseFromText, parseMultiExpenseFromText } from "./openai";
 import { getExchangeRates, convertCurrency } from "./currency";
 import { setupAuth, isAuthenticated, encryptApiKey } from "./auth";
 import { seedCategories } from "./seed";
@@ -107,6 +107,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch transaction creation (protected - user-specific)
+  app.post("/api/transactions/batch", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { transactions } = req.body;
+      
+      if (!Array.isArray(transactions)) {
+        return res.status(400).json({ error: "Transactions must be an array" });
+      }
+
+      // VALIDATE ALL transactions first (all-or-nothing approach)
+      const validatedTransactions = [];
+      for (let i = 0; i < transactions.length; i++) {
+        try {
+          const validated = insertTransactionSchema.parse(transactions[i]);
+          validatedTransactions.push(validated);
+        } catch (error: any) {
+          return res.status(400).json({ 
+            error: `Invalid transaction at index ${i}: ${error.message || "Invalid data"}`,
+            index: i
+          });
+        }
+      }
+
+      // All validations passed, now create all transactions
+      const createdTransactions = [];
+      for (const validated of validatedTransactions) {
+        const transaction = await storage.createTransaction(validated, userId);
+        createdTransactions.push(transaction);
+      }
+
+      res.json({ 
+        success: true,
+        count: createdTransactions.length,
+        transactions: createdTransactions
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to create transactions" });
+    }
+  });
+
   // Budgets (protected - user-specific)
   app.get("/api/budgets", isAuthenticated, async (req: any, res) => {
     try {
@@ -199,6 +240,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Chat - AI multi-expense parsing (protected - user-specific)
+  app.post("/api/chat/parse-multi", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { text, type } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: "Text is required" });
+      }
+
+      // Get user's AI model preference and API key
+      const user = await storage.getUser(userId);
+      const aiModel = user?.aiModel || "gpt-4.1-mini";
+      const userOpenAIKey = user?.openaiApiKey || null;
+
+      // Parse multiple expenses using OpenAI
+      const { transactions: parsedTransactions, errors: parseErrors } = await parseMultiExpenseFromText(text, aiModel, userOpenAIKey, type);
+      
+      // If we have ANY errors, return 400 (atomic validation)
+      if (parseErrors && parseErrors.length > 0) {
+        return res.status(400).json({ 
+          error: parsedTransactions.length === 0 
+            ? "Failed to parse any valid transactions"
+            : `Parsed ${parsedTransactions.length} transaction(s) but ${parseErrors.length} failed validation`,
+          details: parseErrors,
+          partialResults: parsedTransactions.length > 0 ? parsedTransactions.map(t => t.description) : undefined
+        });
+      }
+      
+      // Get categories and account once for all transactions
+      const categories = await storage.getCategories(userId);
+      let accounts = await storage.getAccounts(userId);
+      
+      if (accounts.length === 0) {
+        const defaultAccount = await storage.createAccount({
+          name: 'Main Wallet',
+          type: 'wallet',
+          balance: 0,
+          currency: 'INR',
+          icon: 'Wallet',
+        }, userId);
+        accounts = [defaultAccount];
+      }
+
+      // Process each parsed transaction
+      const transactions = parsedTransactions.map(parsed => {
+        // Find matching category
+        const category = categories.find(c => 
+          c.name.toLowerCase() === parsed.category.toLowerCase() && c.type === parsed.type
+        ) || categories.find(c => 
+          c.name.toLowerCase() === parsed.category.toLowerCase()
+        );
+
+        // Validate date
+        let transactionDate = new Date();
+        if (parsed.date) {
+          const parsedDateObj = new Date(parsed.date);
+          const now = new Date();
+          const daysDiff = (now.getTime() - parsedDateObj.getTime()) / (1000 * 60 * 60 * 24);
+          if (daysDiff >= 0 && daysDiff <= 90) {
+            transactionDate = parsedDateObj;
+          }
+        }
+
+        return {
+          amount: parsed.amount,
+          type: parsed.type,
+          category: category?.name || parsed.category,
+          categoryId: category?.id || categories.find(c => c.name === 'Other')?.id || '',
+          accountId: accounts[0].id,
+          description: parsed.description,
+          date: transactionDate.toISOString(),
+          notes: parsed.notes,
+        };
+      });
+
+      res.json({ transactions });
+    } catch (error: any) {
+      console.error('Multi-parse error:', error);
+      res.status(500).json({ error: error.message || "Failed to parse expenses" });
+    }
+  });
+
   // Chat - AI expense parsing (protected - user-specific)
   app.post("/api/chat/parse", isAuthenticated, async (req: any, res) => {
     try {
@@ -257,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         categoryId: category?.id || categories.find(c => c.name === 'Other')?.id || '',
         accountId: accounts[0].id,
         description: parsed.description,
-        date: transactionDate,
+        date: transactionDate.toISOString(),
         notes: parsed.notes,
       };
 
