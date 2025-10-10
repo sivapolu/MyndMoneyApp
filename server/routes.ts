@@ -616,6 +616,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Analytics - Monthly Income vs Expense Trends (protected - user-specific)
+  app.get("/api/analytics/trends", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const transactions = await storage.getTransactions(userId);
+
+      if (transactions.length === 0) {
+        return res.json([]);
+      }
+
+      // Group transactions by month
+      const monthlyData = new Map<string, { income: number; expenses: number }>();
+
+      transactions.forEach(t => {
+        const date = new Date(t.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!monthlyData.has(monthKey)) {
+          monthlyData.set(monthKey, { income: 0, expenses: 0 });
+        }
+
+        const data = monthlyData.get(monthKey)!;
+        const amount = Number(t.amount);
+        
+        if (t.type === 'income') {
+          data.income += amount;
+        } else {
+          data.expenses += amount;
+        }
+      });
+
+      // Get last 12 months
+      const result = [];
+      const now = new Date();
+      
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const data = monthlyData.get(monthKey) || { income: 0, expenses: 0 };
+        
+        result.push({
+          month: monthKey,
+          income: data.income,
+          expenses: data.expenses,
+          savings: data.income - data.expenses,
+        });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Trends error:", error);
+      res.status(500).json({ error: "Failed to fetch trends" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
