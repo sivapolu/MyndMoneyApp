@@ -19,7 +19,9 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 - AI integration with defensive fallback handling
 
 ## Recent Changes
-- **Historical Reports (Latest - Oct 10)**: Added Reports page with month/year selector for viewing historical financial data. Includes UTC-safe date filtering, period stats (income/expenses/savings), category breakdown, and transaction history. Fully tested with E2E verification.
+- **OCR Receipt Scanning (Latest - Oct 10)**: Implemented OCR document scanning for receipts and bills using OCR.space API. Users can upload receipt images via camera/upload button in Chat page. Auto-extracts merchant, date, total, and line items. Auto-categorizes based on merchant name. Integrates seamlessly with transaction creation flow.
+- **AI Intelligence (Oct 10)**: Added AI Insights page with 2-year income/expense predictions, spending pattern analysis, and personalized savings recommendations. Uses user's OpenAI API key with fallback to deterministic calculations. Fixed calculateTrends bug for <6 month histories.
+- **Historical Reports (Oct 10)**: Added Reports page with month/year selector for viewing historical financial data. Includes UTC-safe date filtering, period stats (income/expenses/savings), category breakdown, and transaction history. Fully tested with E2E verification.
 - **Multi-Expense Parsing (Oct 10)**: Added support for parsing multiple transactions from a single natural language input. Users can now enter "Cab 500, Food 300, Shopping 600" and get all three transactions parsed and previewed at once. Includes atomic batch creation with strict validation.
 - **Supabase Integration (Oct 10)**: Successfully migrated from Neon to Supabase PostgreSQL database. Updated database connection to use node-postgres driver with Transaction Pooler for optimal performance.
 - **Custom Authentication (Oct 10)**: Replaced Replit Auth with email/password authentication. Users can now input their own OpenAI API keys for AI-powered expense parsing.
@@ -52,9 +54,11 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 3. **AI-Powered Expense Entry**
    - Chat-style natural language input
    - **Multi-expense parsing**: Parse multiple transactions from single input ("Cab 500, Food 300, Shopping 600")
+   - **OCR Receipt Scanning**: Upload receipt/bill images via camera button for automatic data extraction
    - Uses user's personal OpenAI API key (encrypted storage)
    - OpenAI GPT-5 parsing with fallback to Replit AI or regex
-   - Auto-categorization of expenses
+   - OCR.space API for receipt text extraction (free tier)
+   - Auto-categorization of expenses based on merchant names
    - Transaction preview and confirmation with batch display
    - Atomic batch creation with strict validation
    - Quick suggestion buttons
@@ -86,7 +90,16 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
    - Transaction list for the period
    - "No data" message for empty periods
 
-8. **Settings**
+8. **AI Intelligence & Insights**
+   - **2-Year Predictions**: Income/expense forecasts for next 24 months using AI
+   - **Spending Pattern Analysis**: Category-wise trend detection (increasing/decreasing/stable)
+   - **Smart Insights**: AI-generated observations about spending habits
+   - **Savings Recommendations**: Personalized financial advice with potential savings
+   - **Confidence Indicators**: High/medium/low confidence badges for predictions
+   - **Priority Levels**: High/medium/low priority for recommendations
+   - Fallback to deterministic calculations when no AI key provided
+
+9. **Settings**
    - OpenAI API key input (encrypted storage with AES-256-CBC)
    - AI model selection (GPT-5, GPT-4.1, GPT-4o variants)
    - Theme toggle (light/dark mode)
