@@ -224,9 +224,6 @@ export default function Auth() {
               className="w-48 h-auto mx-auto mb-4"
               data-testid="img-logo"
             />
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-amber-500 bg-clip-text text-transparent">
-              MyndMoney
-            </CardTitle>
             <CardDescription className="mt-2">
               Your smart finance tracker with AI-powered insights
             </CardDescription>
