@@ -164,21 +164,26 @@ export default function Chat() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    // Accept images (JPG, PNG, WebP, etc.) and PDFs
+    const isImage = file.type.startsWith('image/');
+    const isPDF = file.type === 'application/pdf';
+
+    if (!isImage && !isPDF) {
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'system',
-        content: 'Please upload an image file (JPG, PNG, etc.)',
+        content: 'Please upload an image file (JPG, PNG, etc.) or PDF document',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
       return;
     }
 
+    const fileIcon = isPDF ? '📄' : '📸';
     const uploadMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: `📸 Uploaded receipt: ${file.name}`,
+      content: `${fileIcon} Uploaded ${isPDF ? 'PDF' : 'receipt'}: ${file.name}`,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, uploadMessage]);
@@ -346,7 +351,7 @@ export default function Chat() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               onChange={handleFileUpload}
               className="hidden"
               data-testid="input-file-upload"
@@ -358,7 +363,7 @@ export default function Chat() {
               disabled={ocrScanMutation.isPending}
               className="rounded-full shrink-0"
               data-testid="button-upload-receipt"
-              title="Scan receipt"
+              title="Scan receipt (image or PDF)"
             >
               {ocrScanMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
