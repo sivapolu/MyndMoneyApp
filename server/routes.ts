@@ -435,11 +435,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const patterns = await analyzeSpendingPatterns(transactions, openaiApiKey, aiModel);
       
       // Enrich patterns with category names
+      // The pattern.category can be either a category name (from AI) or a categoryId (from fallback)
       const enrichedPatterns = patterns.map(pattern => {
-        const category = categories.find(c => c.id === pattern.category);
+        // First try to find by ID (for fallback patterns)
+        let category = categories.find(c => c.id === pattern.category);
+        
+        // If not found, try to find by name (for AI patterns)
+        if (!category) {
+          category = categories.find(c => c.name.toLowerCase() === pattern.category.toLowerCase());
+        }
+        
         return {
           ...pattern,
-          categoryName: category?.name || pattern.category,
+          categoryName: category?.name || 'Uncategorized',
         };
       });
 
