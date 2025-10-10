@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import logoPath from "@assets/ChatGPT Image Oct 10, 2025, 12_45_55 AM_1760081417809.png";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -217,6 +218,12 @@ export default function Auth() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2">
           <div className="text-center">
+            <img 
+              src={logoPath} 
+              alt="MyndMoney Logo" 
+              className="w-48 h-auto mx-auto mb-4"
+              data-testid="img-logo"
+            />
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-amber-500 bg-clip-text text-transparent">
               MyndMoney
             </CardTitle>

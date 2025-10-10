@@ -248,6 +248,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/budgets/bulk", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { budgets: budgetData } = req.body;
+
+      if (!Array.isArray(budgetData)) {
+        return res.status(400).json({ error: "budgets must be an array" });
+      }
+
+      const createdBudgets = [];
+      const errors = [];
+
+      for (const [index, budgetItem] of budgetData.entries()) {
+        try {
+          const validated = insertBudgetSchema.parse(budgetItem);
+          const budget = await storage.createBudget(validated, userId);
+          createdBudgets.push(budget);
+        } catch (error: any) {
+          errors.push({
+            row: index + 1,
+            error: error.message || "Validation failed",
+            data: budgetItem,
+          });
+        }
+      }
+
+      res.json({ 
+        success: true,
+        imported: createdBudgets.length,
+        failed: errors.length,
+        errors: errors.length > 0 ? errors : undefined,
+        budgets: createdBudgets
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to import budgets" });
+    }
+  });
+
   app.get("/api/budgets/spending", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
