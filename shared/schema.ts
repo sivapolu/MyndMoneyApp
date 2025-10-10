@@ -146,6 +146,16 @@ export interface ChatMessage {
     description: string;
     date: Date;
   };
+  transactionPreviews?: Array<{
+    amount: number;
+    type: 'expense' | 'income';
+    category: string;
+    categoryId: string;
+    accountId: string;
+    description: string;
+    date: string;
+    notes?: string;
+  }>;
 }
 
 // Dashboard stats type
