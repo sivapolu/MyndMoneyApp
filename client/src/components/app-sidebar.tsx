@@ -12,7 +12,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import logoPath from "@assets/ChatGPT Image Oct 10, 2025, 12_45_55 AM_1760043891915.png";
+import logoPath from "@assets/Untitled design_1760082821987.png";
 
 const menuItems = [
   {

@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import logoPath from "@assets/ChatGPT Image Oct 10, 2025, 12_45_55 AM_1760081417809.png";
+import logoPath from "@assets/Untitled design_1760082821987.png";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
