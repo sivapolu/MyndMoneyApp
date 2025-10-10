@@ -2,18 +2,45 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, TrendingUp, TrendingDown, Wallet, PiggyBank, AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Eye, EyeOff, TrendingUp, TrendingDown, Wallet, PiggyBank, AlertCircle, ArrowRightLeft } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from "recharts";
-import type { DashboardStats, Transaction } from "@shared/schema";
+import type { DashboardStats, Transaction, Budget, Category } from "@shared/schema";
 import { Link } from "wouter";
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 export default function Dashboard() {
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [fromCurrency, setFromCurrency] = useState("INR");
+  const [toCurrency, setToCurrency] = useState("USD");
+  const [amount, setAmount] = useState("1000");
+  const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
+  });
+
+  const { data: budgets } = useQuery<Budget[]>({
+    queryKey: ['/api/budgets'],
+  });
+
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ['/api/categories'],
+  });
+
+  const { data: spending } = useQuery<Record<string, number>>({
+    queryKey: ['/api/budgets/spending'],
+  });
+
+  const { data: exchangeRates } = useQuery<{ base: string; rates: Record<string, number> }>({
+    queryKey: ['/api/exchange-rates', fromCurrency],
+    queryFn: async () => {
+      const response = await fetch(`/api/exchange-rates/${fromCurrency}`);
+      if (!response.ok) throw new Error('Failed to fetch exchange rates');
+      return response.json();
+    },
   });
 
   const formatCurrency = (amount: number) => {
@@ -30,6 +57,31 @@ export default function Dashboard() {
       day: 'numeric',
     });
   };
+
+  const handleConvert = async () => {
+    if (exchangeRates && amount) {
+      const rate = exchangeRates.rates[toCurrency];
+      if (rate) {
+        const converted = Number(amount) * rate;
+        setConvertedAmount(converted);
+      }
+    }
+  };
+
+  // Prepare budget vs expenses data
+  const budgetVsExpensesData = budgets && categories && spending 
+    ? budgets.map(budget => {
+        const category = categories.find(c => c.id === budget.categoryId);
+        const spent = spending[budget.categoryId] || 0;
+        const budgetAmount = Number(budget.amount);
+        return {
+          category: category?.name || 'Unknown',
+          budget: budgetAmount,
+          spent: spent,
+          percentage: budgetAmount > 0 ? Math.round((spent / budgetAmount) * 100) : 0,
+        };
+      })
+    : [];
 
   if (isLoading) {
     return (
@@ -198,6 +250,113 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Budget vs Expenses Chart */}
+        {budgetVsExpensesData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">Budget vs Expenses</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={budgetVsExpensesData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="category" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '0.5rem',
+                      }}
+                    />
+                    <Legend />
+                    <Bar dataKey="budget" fill="hsl(var(--chart-1))" name="Budget" />
+                    <Bar dataKey="spent" fill="hsl(var(--chart-2))" name="Spent" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Currency Exchange */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5" />
+              Currency Exchange
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">From</label>
+                <Select value={fromCurrency} onValueChange={setFromCurrency}>
+                  <SelectTrigger data-testid="select-from-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INR">INR</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">To</label>
+                <Select value={toCurrency} onValueChange={setToCurrency}>
+                  <SelectTrigger data-testid="select-to-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INR">INR</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Amount</label>
+              <Input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Enter amount"
+                data-testid="input-exchange-amount"
+              />
+            </div>
+            <Button 
+              onClick={handleConvert} 
+              className="w-full"
+              data-testid="button-convert-currency"
+            >
+              Convert
+            </Button>
+            {convertedAmount !== null && (
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">Result</p>
+                <p className="text-2xl font-bold tabular-nums" data-testid="text-converted-amount">
+                  {new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: toCurrency,
+                    maximumFractionDigits: 2,
+                  }).format(convertedAmount)}
+                </p>
+                {exchangeRates && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    1 {fromCurrency} = {exchangeRates.rates[toCurrency]?.toFixed(4)} {toCurrency}
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent Transactions */}
@@ -245,7 +404,7 @@ export default function Dashboard() {
               <div className="text-center py-8 text-muted-foreground">
                 <p>No transactions yet</p>
                 <Link href="/chat">
-                  <Button variant="link" className="mt-2" data-testid="link-add-first-transaction">
+                  <Button variant="outline" className="mt-2" data-testid="link-add-first-transaction">
                     Add your first transaction
                   </Button>
                 </Link>
@@ -270,7 +429,7 @@ export default function Dashboard() {
                   <div key={index} className="flex items-center justify-between">
                     <span className="text-sm">{category.category} is at {category.percentage}% of budget</span>
                     <Link href="/budgets">
-                      <Button variant="link" size="sm" data-testid={`link-manage-budget-${index}`}>
+                      <Button variant="outline" size="sm" data-testid={`link-manage-budget-${index}`}>
                         Manage
                       </Button>
                     </Link>
