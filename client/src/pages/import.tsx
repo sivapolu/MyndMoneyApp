@@ -34,6 +34,7 @@ export default function ImportPage() {
     description: '',
     amount: '',
     type: '',
+    category: '',
   });
   const [defaultType, setDefaultType] = useState<'income' | 'expense'>('expense');
   const [dateFormat, setDateFormat] = useState<'auto' | 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'>('auto');
@@ -217,6 +218,9 @@ export default function ImportPage() {
       if (lowerHeaders.some(h => h.includes('type') || h.includes('transaction type'))) {
         autoMapping.type = fileHeaders[lowerHeaders.findIndex(h => h.includes('type') || h.includes('transaction type'))];
       }
+      if (lowerHeaders.some(h => h.includes('category') || h.includes('categories'))) {
+        autoMapping.category = fileHeaders[lowerHeaders.findIndex(h => h.includes('category') || h.includes('categories'))];
+      }
       
       setColumnMapping(prev => ({ ...prev, ...autoMapping }));
     }
@@ -256,9 +260,23 @@ export default function ImportPage() {
         errors.push({ row: idx + 1, field: 'date', value: row[columnMapping.date], error: dateError });
       }
 
-      // Auto-categorize based on description
+      // Get category - first try mapped category column, then auto-categorize
       const description = row[columnMapping.description] || 'Imported transaction';
-      const categoryId = autoCategorize(description, type);
+      let categoryId: string | undefined;
+      
+      if (columnMapping.category && row[columnMapping.category]) {
+        // Try to match category by name from CSV
+        const categoryName = row[columnMapping.category].trim();
+        const matchedCategory = categories?.find(c => 
+          c.name.toLowerCase() === categoryName.toLowerCase() && c.type === type
+        );
+        categoryId = matchedCategory?.id;
+      }
+      
+      // If no category found from mapping, auto-categorize based on description
+      if (!categoryId) {
+        categoryId = autoCategorize(description, type);
+      }
 
       return {
         date,
@@ -331,18 +349,18 @@ export default function ImportPage() {
     setFile(null);
     setCsvData([]);
     setHeaders([]);
-    setColumnMapping({ date: '', description: '', amount: '', type: '' });
+    setColumnMapping({ date: '', description: '', amount: '', type: '', category: '' });
     setPreviewTransactions([]);
     setParseErrors([]);
     setDateFormat('auto');
   };
 
   const downloadSample = () => {
-    const sampleCSV = `Date,Description,Amount,Type
-2024-01-15,Grocery Shopping,1500,expense
-2024-01-16,Salary Credit,50000,income
-2024-01-17,Uber Ride,250,expense
-2024-01-18,Restaurant Bill,800,expense`;
+    const sampleCSV = `Date,Description,Amount,Type,Category
+2024-01-15,Grocery Shopping,1500,expense,Groceries
+2024-01-16,Salary Credit,50000,income,Salary
+2024-01-17,Uber Ride,250,expense,Transportation
+2024-01-18,Restaurant Bill,800,expense,Food & Dining`;
 
     const blob = new Blob([sampleCSV], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -490,6 +508,20 @@ export default function ImportPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">Auto-detect</SelectItem>
+                    {headers.map(h => (
+                      <SelectItem key={h} value={h}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Category Column (Optional)</Label>
+                <Select value={columnMapping.category} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, category: v }))}>
+                  <SelectTrigger data-testid="select-category-column">
+                    <SelectValue placeholder="Auto-categorize from description" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Auto-categorize</SelectItem>
                     {headers.map(h => (
                       <SelectItem key={h} value={h}>{h}</SelectItem>
                     ))}
