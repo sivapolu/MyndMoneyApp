@@ -722,43 +722,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accounts = [defaultAccount];
       }
 
-      // Prepare transaction data from OCR result
+      // Check if this is a bank statement with multiple transactions
+      const isBankStatement = ocrResult.items && ocrResult.items.length > 0 && (ocrResult.items[0] as any)?.type;
       const detectedCurrency = ocrResult.currency || 'INR';
-      const transaction: any = {
-        amount: ocrResult.total || 0,
-        type: 'expense',
-        category: 'Other',
-        categoryId: categories.find(c => c.name === 'Other')?.id || '',
-        accountId: accounts[0].id,
-        description: ocrResult.merchant || 'Receipt scan',
-        date: ocrResult.date ? new Date(ocrResult.date).toISOString() : new Date().toISOString(),
-        currency: detectedCurrency,
-        notes: `Scanned from receipt${ocrResult.items ? `\n\nItems:\n${ocrResult.items.map(item => `- ${item.description}: ${detectedCurrency} ${item.amount}`).join('\n')}` : ''}`,
-      };
 
-      // Try to auto-categorize based on merchant name or items
-      if (ocrResult.merchant) {
-        const merchantLower = ocrResult.merchant.toLowerCase();
-        const matchedCategory = categories.find(c => 
-          merchantLower.includes(c.name.toLowerCase()) && c.type === 'expense'
-        );
-        if (matchedCategory) {
-          transaction.category = matchedCategory.name;
-          transaction.categoryId = matchedCategory.id;
+      if (isBankStatement && ocrResult.items) {
+        // Handle bank statement with multiple transactions
+        const transactions = ocrResult.items.map((txn: any) => ({
+          amount: txn.amount || 0,
+          type: txn.type === 'credit' ? 'income' : 'expense',
+          category: txn.type === 'credit' ? 'Salary' : 'Other',
+          categoryId: categories.find(c => 
+            c.name === (txn.type === 'credit' ? 'Salary' : 'Other') && 
+            c.type === (txn.type === 'credit' ? 'income' : 'expense')
+          )?.id || '',
+          accountId: accounts[0].id,
+          description: txn.description || ocrResult.merchant || 'Bank transaction',
+          date: txn.date ? new Date(txn.date).toISOString() : new Date().toISOString(),
+          currency: detectedCurrency,
+          notes: `From ${ocrResult.merchant || 'Bank Statement'}`,
+        }));
+
+        res.json({ 
+          transactions,
+          isBankStatement: true,
+          ocrResult: {
+            merchant: ocrResult.merchant,
+            transactionCount: transactions.length,
+            currency: ocrResult.currency,
+            rawText: ocrResult.rawText,
+          },
+        });
+      } else {
+        // Handle regular receipt/bill
+        const transaction: any = {
+          amount: ocrResult.total || 0,
+          type: 'expense',
+          category: 'Other',
+          categoryId: categories.find(c => c.name === 'Other')?.id || '',
+          accountId: accounts[0].id,
+          description: ocrResult.merchant || 'Receipt scan',
+          date: ocrResult.date ? new Date(ocrResult.date).toISOString() : new Date().toISOString(),
+          currency: detectedCurrency,
+          notes: `Scanned from receipt${ocrResult.items ? `\n\nItems:\n${ocrResult.items.map(item => `- ${item.description}: ${detectedCurrency} ${item.amount}`).join('\n')}` : ''}`,
+        };
+
+        // Try to auto-categorize based on merchant name
+        if (ocrResult.merchant) {
+          const merchantLower = ocrResult.merchant.toLowerCase();
+          const matchedCategory = categories.find(c => 
+            merchantLower.includes(c.name.toLowerCase()) && c.type === 'expense'
+          );
+          if (matchedCategory) {
+            transaction.category = matchedCategory.name;
+            transaction.categoryId = matchedCategory.id;
+          }
         }
-      }
 
-      res.json({ 
-        transaction,
-        ocrResult: {
-          merchant: ocrResult.merchant,
-          date: ocrResult.date,
-          total: ocrResult.total,
-          currency: ocrResult.currency,
-          items: ocrResult.items,
-          confidence: ocrResult.total ? 'high' : 'low',
-        },
-      });
+        res.json({ 
+          transaction,
+          ocrResult: {
+            merchant: ocrResult.merchant,
+            date: ocrResult.date,
+            total: ocrResult.total,
+            currency: ocrResult.currency,
+            items: ocrResult.items,
+            confidence: ocrResult.total ? 'high' : 'low',
+          },
+        });
+      }
     } catch (error: any) {
       console.error('OCR scan error:', error);
       res.status(500).json({ error: error.message || "Failed to scan receipt" });
