@@ -14,7 +14,7 @@ export default function Landing() {
               <img 
                 src={logoPath} 
                 alt="MyndMoney Logo" 
-                className="h-32 w-auto object-contain"
+                className="h-32 w-auto object-contain brightness-110 contrast-125 saturate-125"
               />
             </div>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">

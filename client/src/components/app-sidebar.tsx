@@ -1,5 +1,5 @@
 import { Home, MessageSquare, PieChart, Wallet, Target, Settings } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import {
   Sidebar,
   SidebarContent,
@@ -43,7 +43,7 @@ const menuItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
 
   return (
     <Sidebar>
@@ -52,7 +52,7 @@ export function AppSidebar() {
           <img 
             src={logoPath} 
             alt="MyndMoney Logo" 
-            className="h-12 w-auto object-contain"
+            className="h-12 w-auto object-contain brightness-110 contrast-125 saturate-125"
           />
         </div>
       </SidebarHeader>
@@ -63,11 +63,13 @@ export function AppSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location === item.url} data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}>
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
+                  <SidebarMenuButton 
+                    isActive={location === item.url} 
+                    onClick={() => setLocation(item.url)}
+                    data-testid={`link-${item.title.toLowerCase().replace(' ', '-')}`}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -78,11 +80,12 @@ export function AppSidebar() {
       <SidebarFooter className="p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild data-testid="link-settings">
-              <Link href="/settings">
-                <Settings className="h-4 w-4" />
-                <span>Settings</span>
-              </Link>
+            <SidebarMenuButton 
+              onClick={() => setLocation("/settings")}
+              data-testid="link-settings"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
