@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, CheckCircle, AlertCircle, Download } from "lucide-react";
 import type { Category } from "@shared/schema";
@@ -24,11 +25,21 @@ interface MappedTransaction {
   categoryId?: string;
 }
 
+interface MappedBudget {
+  categoryId: string;
+  amount: number;
+  period: 'weekly' | 'monthly' | 'yearly';
+  startDate?: string;
+}
+
 export default function ImportPage() {
   const { toast } = useToast();
+  const [importType, setImportType] = useState<'transactions' | 'budgets'>('transactions');
   const [file, setFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
+  
+  // Transaction-specific state
   const [columnMapping, setColumnMapping] = useState({
     date: '',
     description: '',
@@ -39,6 +50,17 @@ export default function ImportPage() {
   const [defaultType, setDefaultType] = useState<'income' | 'expense'>('expense');
   const [dateFormat, setDateFormat] = useState<'auto' | 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'>('auto');
   const [previewTransactions, setPreviewTransactions] = useState<MappedTransaction[]>([]);
+  
+  // Budget-specific state
+  const [budgetMapping, setBudgetMapping] = useState({
+    category: '',
+    amount: '',
+    period: '',
+    startDate: '',
+  });
+  const [defaultPeriod, setDefaultPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
+  const [previewBudgets, setPreviewBudgets] = useState<MappedBudget[]>([]);
+  
   const [parseErrors, setParseErrors] = useState<{ row: number; field: string; value: string; error: string }[]>([]);
 
   const { data: categories } = useQuery<Category[]>({
@@ -66,6 +88,37 @@ export default function ImportPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      resetImport();
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Import failed",
+        description: error.message,
+      });
+    },
+  });
+
+  const importBudgetMutation = useMutation({
+    mutationFn: async (budgets: MappedBudget[]) => {
+      const response = await fetch("/api/budgets/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ budgets }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to import budgets");
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: `${previewBudgets.length} budgets imported successfully`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
       resetImport();
     },
     onError: (error: Error) => {
