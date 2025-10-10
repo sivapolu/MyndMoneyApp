@@ -432,7 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openaiApiKey = user.openaiApiKey ? decryptApiKey(user.openaiApiKey) : '';
       const aiModel = user.aiModel || 'gpt-4o';
 
-      const patterns = await analyzeSpendingPatterns(transactions, openaiApiKey, aiModel);
+      const patterns = await analyzeSpendingPatterns(transactions, openaiApiKey, aiModel, categories);
       
       // Enrich patterns with category names
       // The pattern.category can be either a category name (from AI) or a categoryId (from fallback)
@@ -485,6 +485,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openaiApiKey = user.openaiApiKey ? decryptApiKey(user.openaiApiKey) : '';
       const aiModel = user.aiModel || 'gpt-4o';
 
+      const categories = await storage.getCategories(userId);
+      
       const recommendations = await generateSavingsRecommendations(
         transactions,
         savingsRate,
@@ -492,7 +494,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         aiModel
       );
 
-      res.json(recommendations);
+      // Enrich recommendations by replacing category IDs with names in the description
+      const enrichedRecommendations = recommendations.map(rec => {
+        let description = rec.description;
+        
+        // Replace any category IDs (UUIDs) in the description with category names
+        categories.forEach(category => {
+          // Replace full UUID patterns with category names
+          const uuidRegex = new RegExp(category.id, 'gi');
+          description = description.replace(uuidRegex, category.name);
+        });
+        
+        return {
+          ...rec,
+          description,
+        };
+      });
+
+      res.json(enrichedRecommendations);
     } catch (error) {
       console.error("Recommendations error:", error);
       res.status(500).json({ error: "Failed to generate recommendations" });
