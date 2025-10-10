@@ -1,4 +1,7 @@
 import FormData from 'form-data';
+import OpenAI from 'openai';
+import { decryptApiKey } from './auth';
+import * as pdfParse from 'pdf-parse';
 
 interface OCRResult {
   merchant?: string;
@@ -9,7 +12,87 @@ interface OCRResult {
 }
 
 /**
- * Extract text from receipt/bill image using OCR.space API
+ * Extract structured data from receipt/bill using OpenAI Vision API
+ */
+export async function extractDataWithVision(
+  imageBuffer: Buffer,
+  encryptedApiKey?: string,
+  aiModel: string = 'gpt-4o-mini'
+): Promise<OCRResult> {
+  if (!encryptedApiKey) {
+    throw new Error('OpenAI API key required for OCR scanning. Please add your key in Settings.');
+  }
+
+  try {
+    const apiKey = decryptApiKey(encryptedApiKey);
+    const openai = new OpenAI({ apiKey });
+
+    // Convert image buffer to base64
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = detectImageType(imageBuffer);
+
+    const prompt = `You are a receipt/bill OCR expert. Analyze this image and extract the following information in JSON format:
+
+{
+  "merchant": "Store/Restaurant name",
+  "date": "Transaction date in YYYY-MM-DD format",
+  "total": <total amount as number>,
+  "items": [
+    {"description": "item name", "amount": <price as number>}
+  ],
+  "rawText": "All visible text from the receipt"
+}
+
+Rules:
+- Extract merchant name from the top of the receipt
+- Find the total amount (may be labeled as Total, Amount, Grand Total, etc.)
+- Extract individual line items with their prices if visible
+- Convert all amounts to numbers (remove currency symbols)
+- If date is not found, return null
+- Return only valid JSON`;
+
+    const response = await openai.chat.completions.create({
+      model: aiModel.includes('vision') || aiModel.includes('4o') ? aiModel : 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${base64Image}`,
+              },
+            },
+          ],
+        },
+      ],
+      response_format: { type: 'json_object' },
+      max_completion_tokens: 1000,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No response from OpenAI Vision');
+    }
+
+    const parsed = JSON.parse(content);
+    
+    return {
+      merchant: parsed.merchant || undefined,
+      date: parsed.date || undefined,
+      total: parsed.total ? Number(parsed.total) : undefined,
+      items: parsed.items || undefined,
+      rawText: parsed.rawText || '',
+    };
+  } catch (error: any) {
+    console.error('OpenAI Vision OCR error:', error);
+    throw new Error(error.message || 'Failed to extract data from image');
+  }
+}
+
+/**
+ * Fallback: Extract text from receipt/bill image using OCR.space API
  */
 export async function extractTextFromImage(imageBuffer: Buffer, apiKey?: string): Promise<string> {
   const ocrApiKey = apiKey || process.env.OCR_SPACE_API_KEY || 'helloworld'; // Free tier key
@@ -44,6 +127,104 @@ export async function extractTextFromImage(imageBuffer: Buffer, apiKey?: string)
   } catch (error) {
     console.error('OCR extraction error:', error);
     throw new Error('Failed to extract text from image');
+  }
+}
+
+/**
+ * Detect image MIME type from buffer
+ */
+function detectImageType(buffer: Buffer): string {
+  const header = buffer.toString('hex', 0, 4);
+  
+  if (header.startsWith('ffd8')) return 'image/jpeg';
+  if (header.startsWith('8950')) return 'image/png';
+  if (header.startsWith('4749')) return 'image/gif';
+  if (header.startsWith('4257')) return 'image/webp';
+  
+  return 'image/jpeg'; // default
+}
+
+/**
+ * Extract data from PDF receipt using text extraction + OpenAI parsing
+ */
+export async function extractDataFromPDF(
+  pdfBuffer: Buffer,
+  encryptedApiKey?: string,
+  aiModel: string = 'gpt-4o-mini'
+): Promise<OCRResult> {
+  if (!encryptedApiKey) {
+    throw new Error('OpenAI API key required for PDF scanning. Please add your key in Settings.');
+  }
+
+  try {
+    // Extract text from PDF
+    const pdfData = await (pdfParse as any)(pdfBuffer);
+    const extractedText = pdfData.text;
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error('No text found in PDF');
+    }
+
+    // Use OpenAI to parse the extracted text
+    const apiKey = decryptApiKey(encryptedApiKey);
+    const openai = new OpenAI({ apiKey });
+
+    const prompt = `You are a receipt/bill OCR expert. Analyze this text extracted from a PDF receipt and extract the following information in JSON format:
+
+{
+  "merchant": "Store/Restaurant name",
+  "date": "Transaction date in YYYY-MM-DD format",
+  "total": <total amount as number>,
+  "items": [
+    {"description": "item name", "amount": <price as number>}
+  ],
+  "rawText": "All text from the receipt"
+}
+
+Rules:
+- Extract merchant name from the top of the receipt
+- Find the total amount (may be labeled as Total, Amount, Grand Total, etc.)
+- Extract individual line items with their prices if visible
+- Convert all amounts to numbers (remove currency symbols)
+- If date is not found, return null
+- Return only valid JSON
+
+Receipt text:
+${extractedText}`;
+
+    const response = await openai.chat.completions.create({
+      model: aiModel,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a financial assistant that extracts structured data from receipts and bills.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      max_completion_tokens: 1000,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No response from OpenAI');
+    }
+
+    const parsed = JSON.parse(content);
+    
+    return {
+      merchant: parsed.merchant || undefined,
+      date: parsed.date || undefined,
+      total: parsed.total ? Number(parsed.total) : undefined,
+      items: parsed.items || undefined,
+      rawText: extractedText,
+    };
+  } catch (error: any) {
+    console.error('PDF extraction error:', error);
+    throw new Error(error.message || 'Failed to extract data from PDF');
   }
 }
 

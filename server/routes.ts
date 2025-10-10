@@ -669,15 +669,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const file = req.file;
       
       if (!file) {
-        return res.status(400).json({ error: "No image file uploaded" });
+        return res.status(400).json({ error: "No file uploaded" });
       }
 
-      // Get user's OCR API key (optional - falls back to free tier)
+      // Get user's OpenAI API key and model preference
       const user = await storage.getUser(userId);
-      const ocrApiKey = user?.openaiApiKey ? decryptApiKey(user.openaiApiKey) : undefined;
+      
+      if (!user?.openaiApiKey) {
+        return res.status(400).json({ 
+          error: "OpenAI API key required for OCR scanning. Please add your key in Settings." 
+        });
+      }
 
-      // Process receipt image with OCR
-      const ocrResult = await processReceiptImage(file.buffer, ocrApiKey);
+      // Determine file type and use appropriate extraction method
+      const { extractDataWithVision, extractDataFromPDF } = await import("./ocr");
+      let ocrResult;
+
+      if (file.mimetype === 'application/pdf') {
+        // Handle PDF files
+        ocrResult = await extractDataFromPDF(
+          file.buffer, 
+          user.openaiApiKey,
+          user.aiModel || 'gpt-4o-mini'
+        );
+      } else if (file.mimetype.startsWith('image/')) {
+        // Handle image files (jpg, png, etc.)
+        ocrResult = await extractDataWithVision(
+          file.buffer, 
+          user.openaiApiKey,
+          user.aiModel || 'gpt-4o-mini'
+        );
+      } else {
+        return res.status(400).json({ 
+          error: "Unsupported file type. Please upload an image (JPG, PNG) or PDF file." 
+        });
+      }
       
       // Parse the extracted data into transaction format
       const categories = await storage.getCategories(userId);
