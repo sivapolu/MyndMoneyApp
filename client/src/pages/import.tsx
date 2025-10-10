@@ -796,12 +796,12 @@ Entertainment,2000,weekly,2024-01-01`;
               </div>
               <div>
                 <Label>Period Column (Optional)</Label>
-                <Select value={budgetMapping.period} onValueChange={(v) => setBudgetMapping(prev => ({ ...prev, period: v }))}>
+                <Select value={budgetMapping.period || "__none__"} onValueChange={(v) => setBudgetMapping(prev => ({ ...prev, period: v === "__none__" ? '' : v }))}>
                   <SelectTrigger data-testid="select-budget-period-column">
                     <SelectValue placeholder="Use default period" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Use default</SelectItem>
+                    <SelectItem value="__none__">Use default</SelectItem>
                     {headers.map(h => (
                       <SelectItem key={h} value={h}>{h}</SelectItem>
                     ))}
@@ -810,12 +810,12 @@ Entertainment,2000,weekly,2024-01-01`;
               </div>
               <div>
                 <Label>Start Date Column (Optional)</Label>
-                <Select value={budgetMapping.startDate} onValueChange={(v) => setBudgetMapping(prev => ({ ...prev, startDate: v }))}>
+                <Select value={budgetMapping.startDate || "__none__"} onValueChange={(v) => setBudgetMapping(prev => ({ ...prev, startDate: v === "__none__" ? '' : v }))}>
                   <SelectTrigger data-testid="select-budget-startdate-column">
                     <SelectValue placeholder="Use current date" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Use current date</SelectItem>
+                    <SelectItem value="__none__">Use current date</SelectItem>
                     {headers.map(h => (
                       <SelectItem key={h} value={h}>{h}</SelectItem>
                     ))}
