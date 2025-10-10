@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual, createCipheriv, createDecipheriv } from "crypto";
+import { scrypt, randomBytes, timingSafeEqual, createCipheriv, createDecipheriv, scryptSync } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import type { User as SelectUser } from "@shared/schema";
@@ -15,7 +15,19 @@ declare global {
 
 const scryptAsync = promisify(scrypt);
 
-const ENCRYPTION_KEY = process.env.SESSION_SECRET || "must-be-32-chars-long-secret!!";
+// Derive a proper 32-byte encryption key using scrypt KDF
+function deriveEncryptionKey(): Buffer {
+  const secret = process.env.ENCRYPTION_SECRET || process.env.SESSION_SECRET;
+  if (!secret || secret.length < 16) {
+    throw new Error('ENCRYPTION_SECRET or SESSION_SECRET must be at least 16 characters for secure API key encryption');
+  }
+  
+  // Use scrypt to derive a proper 32-byte key from the secret
+  const salt = 'myndmoney-api-key-encryption-v1';
+  return scryptSync(secret, salt, 32);
+}
+
+const ENCRYPTION_KEY = deriveEncryptionKey();
 const ALGORITHM = 'aes-256-cbc';
 
 export async function hashPassword(password: string): Promise<string> {
@@ -33,7 +45,7 @@ export async function comparePasswords(supplied: string, stored: string): Promis
 
 export function encryptApiKey(apiKey: string): string {
   const iv = randomBytes(16);
-  const cipher = createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.slice(0, 32)), iv);
+  const cipher = createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
   let encrypted = cipher.update(apiKey, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   return iv.toString('hex') + ':' + encrypted;
@@ -43,7 +55,7 @@ export function decryptApiKey(encryptedKey: string): string {
   const parts = encryptedKey.split(':');
   const iv = Buffer.from(parts[0], 'hex');
   const encrypted = parts[1];
-  const decipher = createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.slice(0, 32)), iv);
+  const decipher = createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
   let decrypted = decipher.update(encrypted, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
   return decrypted;
@@ -143,6 +155,16 @@ export function setupAuth(app: Express) {
     req.logout((err) => {
       if (err) return next(err);
       res.sendStatus(200);
+    });
+  });
+
+  app.get("/api/logout", (req: Request, res: Response, next: NextFunction) => {
+    req.logout((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ error: 'Failed to logout' });
+      }
+      res.redirect('/');
     });
   });
 
