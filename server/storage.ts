@@ -10,12 +10,21 @@ import type {
   DashboardStats
 } from "@shared/schema";
 import { categories, accounts, transactions, budgets, goals, users } from "@shared/schema";
+import session from "express-session";
+import type { SessionData } from "express-session";
+import connectPg from "connect-pg-simple";
+
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
+  // User operations
+  sessionStore: session.Store;
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(userData: Partial<User>): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserAiModel(userId: string, aiModel: string): Promise<User>;
+  updateUserOpenAIKey(userId: string, openaiApiKey: string): Promise<User>;
   
   // Categories (global, not user-specific)
   getCategories(): Promise<Category[]>;
@@ -51,9 +60,31 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations (required for Replit Auth)
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({ 
+      tableName: 'sessions',
+      createTableIfMissing: false 
+    } as any);
+  }
+
+  // User operations
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: Partial<User>): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData as any)
+      .returning();
     return user;
   }
 
@@ -76,6 +107,15 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set({ aiModel, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async updateUserOpenAIKey(userId: string, openaiApiKey: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ openaiApiKey, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return user;
