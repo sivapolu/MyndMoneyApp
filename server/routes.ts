@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { parseExpenseFromText } from "./openai";
 import { getExchangeRates, convertCurrency } from "./currency";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { seedCategories } from "./seed";
 import { insertCategorySchema, insertAccountSchema, insertTransactionSchema, insertBudgetSchema, insertGoalSchema } from "@shared/schema";
 
@@ -14,29 +14,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed default categories if needed
   await seedCategories();
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Auth routes (handled in auth.ts: /api/register, /api/login, /api/logout, /api/user)
 
+  // User preferences
   app.patch('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const { aiModel } = req.body;
+      const userId = req.user.id;
+      const { aiModel, openaiApiKey } = req.body;
       
-      if (!aiModel) {
-        return res.status(400).json({ error: "AI model is required" });
+      if (aiModel) {
+        const updatedUser = await storage.updateUserAiModel(userId, aiModel);
+        return res.json(updatedUser);
       }
       
-      const updatedUser = await storage.updateUserAiModel(userId, aiModel);
-      res.json(updatedUser);
+      if (openaiApiKey !== undefined) {
+        const updatedUser = await storage.updateUserOpenAIKey(userId, openaiApiKey);
+        const { password: _, ...userWithoutPassword } = updatedUser;
+        return res.json(userWithoutPassword);
+      }
+      
+      res.status(400).json({ error: "AI model or OpenAI API key is required" });
     } catch (error) {
       console.error("Error updating user preferences:", error);
       res.status(500).json({ message: "Failed to update user preferences" });
@@ -66,7 +63,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Accounts (protected - user-specific)
   app.get("/api/accounts", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const accounts = await storage.getAccounts(userId);
       res.json(accounts);
     } catch (error) {
@@ -76,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/accounts", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validated = insertAccountSchema.parse(req.body);
       const account = await storage.createAccount(validated, userId);
       res.json(account);
@@ -88,7 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Transactions (protected - user-specific)
   app.get("/api/transactions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const transactions = await storage.getTransactions(userId);
       res.json(transactions);
     } catch (error) {
@@ -98,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/transactions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validated = insertTransactionSchema.parse(req.body);
       const transaction = await storage.createTransaction(validated, userId);
       res.json(transaction);
@@ -110,7 +107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Budgets (protected - user-specific)
   app.get("/api/budgets", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const budgets = await storage.getBudgets(userId);
       res.json(budgets);
     } catch (error) {
@@ -120,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/budgets", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validated = insertBudgetSchema.parse(req.body);
       const budget = await storage.createBudget(validated, userId);
       res.json(budget);
@@ -131,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/budgets/spending", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const budgets = await storage.getBudgets(userId);
       const spending: Record<string, number> = {};
       
@@ -148,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Goals (protected - user-specific)
   app.get("/api/goals", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const goals = await storage.getGoals(userId);
       res.json(goals);
     } catch (error) {
@@ -158,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/goals", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validated = insertGoalSchema.parse(req.body);
       const goal = await storage.createGoal(validated, userId);
       res.json(goal);
@@ -170,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard stats (protected - user-specific)
   app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const stats = await storage.getDashboardStats(userId);
       res.json(stats);
     } catch (error) {
@@ -202,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chat - AI expense parsing (protected - user-specific)
   app.post("/api/chat/parse", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { text } = req.body;
       
       if (!text || typeof text !== 'string') {
