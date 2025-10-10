@@ -41,20 +41,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Categories (public - not user-specific)
-  app.get("/api/categories", async (req, res) => {
+  // Categories (global and user-specific)
+  app.get("/api/categories", isAuthenticated, async (req: any, res) => {
     try {
-      const categories = await storage.getCategories();
+      const userId = req.user?.id;
+      const categories = await storage.getCategories(userId);
       res.json(categories);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch categories" });
     }
   });
 
-  app.post("/api/categories", async (req, res) => {
+  app.post("/api/categories", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.id;
       const validated = insertCategorySchema.parse(req.body);
-      const category = await storage.createCategory(validated);
+      const category = await storage.createCategory(validated, userId);
       res.json(category);
     } catch (error) {
       res.status(400).json({ error: "Invalid category data" });
