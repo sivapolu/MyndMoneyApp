@@ -2,15 +2,54 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/hooks/useAuth";
-import { Bell, Shield, Palette, User, LogOut } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Bell, Shield, Palette, User, LogOut, Sparkles } from "lucide-react";
+
+const AI_MODELS = [
+  { value: "gpt-5", label: "GPT-5 (Latest, Most Capable)" },
+  { value: "gpt-5-mini", label: "GPT-5 Mini (Fast & Efficient)" },
+  { value: "gpt-4.1", label: "GPT-4.1" },
+  { value: "gpt-4.1-mini", label: "GPT-4.1 Mini (Recommended)" },
+  { value: "gpt-4o", label: "GPT-4o" },
+  { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+];
 
 export default function Settings() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const updateAiModelMutation = useMutation({
+    mutationFn: async (aiModel: string) => {
+      return await apiRequest('PATCH', '/api/auth/user', { aiModel });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      toast({
+        title: "Success",
+        description: "AI model preference updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update AI model preference",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleLogout = () => {
     window.location.href = '/api/logout';
+  };
+
+  const handleModelChange = (value: string) => {
+    updateAiModelMutation.mutate(value);
   };
 
   return (
@@ -52,6 +91,42 @@ export default function Settings() {
               <LogOut className="h-4 w-4 mr-2" />
               Log Out
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+          <div className="w-10 h-10 rounded-lg bg-chart-5/10 flex items-center justify-center">
+            <Sparkles className="h-5 w-5 text-chart-5" />
+          </div>
+          <div>
+            <CardTitle>AI Settings</CardTitle>
+            <CardDescription>Choose your preferred AI model for expense parsing</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>AI Model</Label>
+            <Select 
+              value={user?.aiModel || "gpt-4.1-mini"} 
+              onValueChange={handleModelChange}
+              disabled={updateAiModelMutation.isPending}
+            >
+              <SelectTrigger data-testid="select-ai-model">
+                <SelectValue placeholder="Select AI model" />
+              </SelectTrigger>
+              <SelectContent>
+                {AI_MODELS.map((model) => (
+                  <SelectItem key={model.value} value={model.value}>
+                    {model.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Different models offer varying levels of speed and accuracy. GPT-4.1 Mini is recommended for cost-efficiency.
+            </p>
           </div>
         </CardContent>
       </Card>
