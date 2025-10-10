@@ -1,265 +1,49 @@
 # MyndMoney - Smart Finance Tracker
 
 ## Overview
-MyndMoney is a comprehensive personal finance tracking application with AI-powered expense parsing, budgeting tools, multi-currency support, and secure user authentication. Built with a beautiful, modern UI following professional design guidelines.
+MyndMoney is a comprehensive personal finance tracking application designed to help users manage their finances effectively. It offers AI-powered expense parsing, robust budgeting tools, multi-currency support, and secure user authentication. The project aims to provide a modern, intuitive, and secure platform for personal financial management, distinguishing itself with advanced AI features and a professional user experience. MyndMoney seeks to empower users with insights into their spending habits, facilitate smart financial planning, and support wealth accumulation through goal tracking and predictive analytics.
 
-## Current State (October 10, 2025)
-✅ **Custom Authentication Implemented**
-- Email/password authentication with Passport.js
-- Secure password hashing using scrypt
-- Encrypted OpenAI API key storage per user (AES-256-CBC with KDF)
-- PostgreSQL sessions with connect-pg-simple
-- User-scoped data isolation
-- Secure session management
+## User Preferences
+I want iterative development.
+Ask before making major changes.
+I prefer detailed explanations.
+Do not make changes to the folder `Z`.
+Do not make changes to the file `Y`.
 
-✅ **MVP Complete and Tested**
-- All core features implemented and working
-- End-to-end testing passed successfully
-- Responsive design with light/dark theme support
-- AI integration with defensive fallback handling
+## System Architecture
 
-## Recent Changes
-- **CSV Data Import (Latest - Oct 10)**: Added comprehensive Import Data page for uploading historical transactions via CSV. Features Papa Parse for robust CSV handling, smart column mapping with auto-detection, date format selector (DD/MM, MM/DD, ISO), accounting format support for amounts, auto-categorization, parse error surfacing, and bulk import endpoint. Helps users populate historical data for better analytics.
-- **Financial Analysis & Analytics (Oct 10)**: Added comprehensive Analytics page with Budget vs Actual comparison (bar chart showing all budget periods with spending) and Income vs Expenses trends (line chart with 12-month historical view). Includes month/year period selector for historical analysis. Backend supports date-filtered spending queries for flexible reporting.
-- **OCR Receipt Scanning (Oct 10)**: Implemented OCR document scanning for receipts and bills using OCR.space API. Users can upload receipt images via camera/upload button in Chat page. Auto-extracts merchant, date, total, and line items. Auto-categorizes based on merchant name. Integrates seamlessly with transaction creation flow.
-- **AI Intelligence (Oct 10)**: Added AI Insights page with 2-year income/expense predictions, spending pattern analysis, and personalized savings recommendations. Uses user's OpenAI API key with fallback to deterministic calculations. Fixed calculateTrends bug for <6 month histories.
-- **Historical Reports (Oct 10)**: Added Reports page with month/year selector for viewing historical financial data. Includes UTC-safe date filtering, period stats (income/expenses/savings), category breakdown, and transaction history. Fully tested with E2E verification.
-- **Multi-Expense Parsing (Oct 10)**: Added support for parsing multiple transactions from a single natural language input. Users can now enter "Cab 500, Food 300, Shopping 600" and get all three transactions parsed and previewed at once. Includes atomic batch creation with strict validation.
-- **Supabase Integration (Oct 10)**: Successfully migrated from Neon to Supabase PostgreSQL database. Updated database connection to use node-postgres driver with Transaction Pooler for optimal performance.
-- **Custom Authentication (Oct 10)**: Replaced Replit Auth with email/password authentication. Users can now input their own OpenAI API keys for AI-powered expense parsing.
-- **Security Hardening**: Implemented scrypt-based key derivation for encryption, proper error handling in logout, and validation for encryption secrets
-- **AI Model Selection**: Added user preference for AI model in settings with dropdown selector (GPT-5, GPT-4.1, GPT-4o variants). Chat parsing now uses user's selected model and personal API key
-- **Branding**: Integrated custom MyndMoney logo with head silhouette and dollar sign design across landing page and sidebar
-- **Schema & Frontend (Task 1)**: Defined complete data models for transactions, budgets, accounts, goals, and categories. Built all React components with exceptional visual quality following design_guidelines.md
-- **Backend Implementation (Task 2)**: Implemented all API endpoints, OpenAI AI integration with fallback parsing, currency exchange rate API, and business logic
-- **Integration & Testing (Task 3)**: Connected frontend to backend, fixed schema validation issues, implemented proper type coercion, and successfully tested all features
+### UI/UX Decisions
+The application features a modern, professional UI adhering to specific design guidelines (`design_guidelines.md`). This includes a blue/gold primary color palette, Inter and Poppins typography, a responsive grid system, and Shadcn UI components with custom hover/active elevations and smooth transitions. The user interface supports both light and dark themes.
 
-## Features
+### Technical Implementations
+- **Frontend**: Built with React, Wouter for routing, TanStack Query for data fetching, Shadcn UI for components, and Tailwind CSS for styling.
+- **Backend**: Implemented using Express.js for the API, PostgreSQL (Supabase) as the database, and Drizzle ORM for database interactions.
+- **Authentication**: Custom email/password authentication using Passport.js with a local strategy. Passwords are secured with scrypt hashing, and user sessions are managed via `connect-pg-simple` storing sessions in PostgreSQL. Password reset uses an email-based OTP system via an external API.
+- **AI Integration**: Leverages personal OpenAI API keys (encrypted with AES-256-CBC) for natural language expense parsing and financial predictions. Supports multi-expense parsing and OCR receipt scanning. Fallback mechanisms are in place (Replit AI Integrations or regex parsing) if an OpenAI key is not provided. Users can select their preferred AI model (GPT-5, GPT-4.1, GPT-4o variants).
+- **Data Management**: All user data is strictly isolated. Transactions automatically update account balances.
+- **Data Import**: Comprehensive CSV data import functionality with intelligent column mapping, date format selection, accounting format support, auto-categorization, and error handling.
 
-### Core MVP Features
-1. **User Authentication**
-   - Custom email/password authentication with Passport.js
-   - Secure password hashing using scrypt algorithm
-   - PostgreSQL session storage with connect-pg-simple
-   - User signup, login, and logout functionality
-   - Protected routes with session management
-   - Data isolation per user
+### Feature Specifications
+- **User Authentication**: Secure signup, login, logout, password reset with email OTP, and protected routes.
+- **Dashboard**: Provides an overview of financial health including balances, monthly income/expenses/savings, category spending, trends, and recent transactions.
+- **AI-Powered Expense Entry**: Chat-style input for transaction logging, multi-expense parsing, and OCR scanning for receipts (merchant, date, total, line items extraction). Includes auto-categorization and transaction preview.
+- **Account Management**: Supports various account types (cash, card, wallet, crypto) with multi-currency support and real-time exchange rates.
+- **Budget Planning**: Category-wise budget creation with visual progress bars, alerts, and flexible periods (weekly, monthly, yearly).
+- **Savings Goals**: Allows creation and tracking of savings goals with target amounts and deadlines.
+- **Historical Reports**: Provides month/year selectable financial reports including period stats, category breakdowns, and transaction history.
+- **AI Intelligence & Insights**: Offers 2-year income/expense predictions, spending pattern analysis, personalized savings recommendations, and smart insights.
+- **Financial Analysis & Analytics**: Features budget vs. actual comparisons and 12-month income vs. expenses trend charts with historical period selection.
+- **Settings**: Allows users to manage their OpenAI API key, select AI models, toggle themes, and manage privacy controls.
 
-2. **Dashboard**
-   - Hero balance card with privacy toggle
-   - Monthly income, expenses, and savings statistics
-   - Spending by category pie chart
-   - Monthly trend line chart
-   - Recent transactions list
-   - Budget alerts for exceeded limits
+### System Design Choices
+- **Database Schema**: PostgreSQL with Drizzle ORM, featuring user-specific tables linked by `userId` for data isolation. Uses UUID primary keys and proper foreign key relationships.
+- **Schema Validation**: Zod is used for robust schema validation and type coercion on all API request bodies.
+- **Storage**: Custom `DatabaseStorage` module with user scoping for all CRUD operations.
+- **API Endpoints**: Comprehensive set of RESTful API endpoints for managing users, accounts, transactions, budgets, goals, and AI interactions, all protected by authentication middleware.
 
-3. **AI-Powered Expense Entry**
-   - Chat-style natural language input
-   - **Multi-expense parsing**: Parse multiple transactions from single input ("Cab 500, Food 300, Shopping 600")
-   - **OCR Receipt Scanning**: Upload receipt/bill images via camera button for automatic data extraction
-   - Uses user's personal OpenAI API key (encrypted storage)
-   - OpenAI GPT-5 parsing with fallback to Replit AI or regex
-   - OCR.space API for receipt text extraction (free tier)
-   - Auto-categorization of expenses based on merchant names
-   - Transaction preview and confirmation with batch display
-   - Atomic batch creation with strict validation
-   - Quick suggestion buttons
-
-4. **Account Management**
-   - Support for cash, card, wallet, and crypto accounts
-   - Multi-currency support (INR, USD, EUR)
-   - Real-time exchange rates via API
-   - Total balance aggregation
-
-5. **Budget Planning**
-   - Category-wise budget creation
-   - Visual progress bars
-   - Alert thresholds (50%, 80%, 100%)
-   - Period options (weekly, monthly, yearly)
-   - Spending vs budget tracking
-
-6. **Savings Goals**
-   - Goal creation with target amounts
-   - Progress tracking
-   - Deadline management
-   - Achievement indicators
-
-7. **Historical Reports**
-   - Month/year period selector for historical data
-   - UTC-safe date filtering to avoid timezone issues
-   - Income, expenses, and savings stats for selected period
-   - Category breakdown pie chart
-   - Transaction list for the period
-   - "No data" message for empty periods
-
-8. **AI Intelligence & Insights**
-   - **2-Year Predictions**: Income/expense forecasts for next 24 months using AI
-   - **Spending Pattern Analysis**: Category-wise trend detection (increasing/decreasing/stable)
-   - **Smart Insights**: AI-generated observations about spending habits
-   - **Savings Recommendations**: Personalized financial advice with potential savings
-   - **Confidence Indicators**: High/medium/low confidence badges for predictions
-   - **Priority Levels**: High/medium/low priority for recommendations
-   - Fallback to deterministic calculations when no AI key provided
-
-9. **Financial Analysis & Analytics**
-   - **Budget vs Actual Comparison**: Bar chart showing all budgets (weekly/monthly/yearly) with actual spending
-   - **Income vs Expenses Trends**: Line chart displaying 12-month financial trends
-   - **Month/Year Period Selection**: Historical data filtering with dropdown selectors
-   - **Dynamic Summary Cards**: Total spent, average income, savings rate for selected period
-   - **Period-Aware Insights**: Chart descriptions update to reflect selected month/year
-   - **12-Month Historical Window**: Trends show 12 months ending with selected period
-   - **Date-Filtered Queries**: Backend supports flexible date range filtering for spending analysis
-
-10. **Settings**
-   - OpenAI API key input (encrypted storage with AES-256-CBC)
-   - AI model selection (GPT-5, GPT-4.1, GPT-4o variants)
-   - Theme toggle (light/dark mode)
-   - Notification preferences
-   - Privacy controls
-   - Account information display
-   - Logout button
-
-### Technical Stack
-- **Frontend**: React, Wouter, TanStack Query, Shadcn UI, Tailwind CSS
-- **Backend**: Express.js, PostgreSQL (Supabase), Drizzle ORM
-- **Authentication**: Passport.js with Local Strategy (email/password)
-- **Security**: Scrypt password hashing, AES-256-CBC API key encryption with KDF
-- **AI**: User's personal OpenAI API key with fallback to Replit AI Integrations or regex
-- **APIs**: Exchange Rate API for currency conversion
-
-## Project Architecture
-
-### Authentication Flow
-1. Logged-out users see landing page with login/signup buttons
-2. Login via `/api/login` triggers Replit Auth flow
-3. Callback at `/api/callback` creates/updates user session
-4. All API routes protected with `isAuthenticated` middleware
-5. Frontend uses `useAuth` hook to check authentication state
-6. Logout via `/api/logout` clears session and redirects
-
-### Data Model
-- **Users**: Authentication data (id, email, firstName, lastName, profileImageUrl)
-- **Sessions**: Secure session storage for Replit Auth
-- **Categories**: Pre-populated expense/income categories with icons and colors (global)
-- **Accounts**: Financial accounts with balance tracking (user-specific)
-- **Transactions**: Expense/income records with auto balance updates (user-specific)
-- **Budgets**: Category-wise spending limits with alerts (user-specific)
-- **Goals**: Savings targets with progress tracking (user-specific)
-
-### Database Schema
-- PostgreSQL with Drizzle ORM
-- All user-specific tables have `userId` foreign key
-- Sessions table for secure authentication
-- Automatic UUID primary keys
-- Proper foreign key relationships
-
-### Schema Validation
-All insert schemas use Zod with proper type coercion:
-- `z.coerce.number()` for decimal fields
-- `z.coerce.date()` for timestamp fields
-- Validated request bodies in all API endpoints
-- userId omitted from insert schemas (added server-side)
-
-### Key API Endpoints
-- `GET /api/auth/user` - Get current user (protected)
-- `GET /api/login` - Initiate login flow
-- `GET /api/logout` - Logout and clear session
-- `GET /api/categories` - All categories (public)
-- `POST /api/accounts` - Create account (protected, user-scoped)
-- `POST /api/transactions` - Create transaction (protected, user-scoped)
-- `POST /api/budgets` - Create budget (protected, user-scoped)
-- `POST /api/goals` - Create goal (protected, user-scoped)
-- `POST /api/chat/parse` - AI expense parsing (protected, user-scoped)
-- `GET /api/dashboard/stats` - Dashboard statistics (protected, user-scoped)
-- `GET /api/budgets/spending` - Budget spending with optional date filtering (protected, user-scoped)
-- `GET /api/analytics/trends` - Income/expense trends with period selection (protected, user-scoped)
-- `GET /api/exchange-rates/:base` - Currency rates (public)
-- `POST /api/convert-currency` - Currency conversion (public)
-
-### Storage Implementation
-- PostgreSQL DatabaseStorage with user scoping
-- All CRUD operations include userId parameter
-- Automatic account balance updates on transactions
-- Default categories seeded on startup
-- Category spending calculations for budgets with optional date filtering
-- `getCategorySpending()` supports startDate/endDate parameters for flexible period queries
-
-## Design Guidelines
-The app strictly follows `design_guidelines.md` with:
-- **Colors**: Blue/gold primary palette with semantic colors
-- **Typography**: Inter for UI, Poppins for display
-- **Layout**: Responsive grid system with consistent spacing
-- **Components**: Shadcn UI with custom hover/active elevations
-- **Interactions**: Smooth transitions and micro-animations
-
-## User Flow
-
-### First-Time User
-1. Visit app → See landing page
-2. Click "Get Started" → Replit Auth login/signup
-3. After authentication → Dashboard (initially empty)
-4. Add first account via Accounts page
-5. Use Chat to add expenses with AI parsing
-6. Create budgets and goals
-
-### Returning User
-1. Visit app → Automatic login if session valid
-2. See dashboard with personalized data
-3. All data isolated to their user account
-
-## Development Notes
-
-### Running the Application
-```bash
-npm run dev
-```
-Serves on port 5000 with Vite HMR
-
-### Database Management
-```bash
-npm run db:push  # Sync schema changes to database
-```
-
-### Testing Status
-✅ Landing page for logged-out users
-✅ Authentication flow (pending e2e test)
-✅ Protected routes with user scoping
-✅ Dashboard loads with stats
-✅ Account creation and management
-✅ AI expense parsing (with fallback)
-✅ Transaction creation with balance updates
-✅ Budget creation and tracking
-✅ Goal creation and progress
-✅ Multi-currency support
-✅ Responsive design (desktop + mobile)
-✅ Logout functionality
-
-### Environment Variables
-- `DATABASE_URL` - PostgreSQL connection string
-- `SESSION_SECRET` - Session encryption key
-- `REPL_ID` - Replit app ID (auto-provided)
-- `REPLIT_DOMAINS` - Replit domains (auto-provided)
-- `ISSUER_URL` - OpenID issuer URL (defaults to replit.com/oidc)
-
-### Known Behaviors
-- AI integration requires Replit AI Integrations setup (falls back to regex parsing)
-- Exchange rates cached for 1 hour
-- First account auto-created when adding first transaction
-- Balance updates happen immediately on transaction creation
-- User data completely isolated - no cross-user access
-- Sessions expire after 7 days of inactivity
-
-## Next Phase Features (Future)
-- Family/shared budgeting with member invitations
-- Voice entry for hands-free expense logging
-- Investment tracker (mutual funds, SIPs, stocks, crypto)
-- Tax planning with deduction tagging
-- Gamification (badges, streaks, challenges)
-- Recurring expense auto-detection
-- Subscription tracking and reminders
-- CSV import/export functionality
-- Email notifications for budget alerts
-- Two-factor authentication
-
-## Deployment
-The application is ready for deployment via Replit's publishing feature. All core functionality is working with secure authentication and data persistence.
+## External Dependencies
+- **OpenAI API**: Used for AI-powered natural language expense parsing, financial predictions, and insights. Users provide their own keys.
+- **OCR.space API**: Utilized for Optical Character Recognition (OCR) to extract data from uploaded receipts and bills.
+- **Exchange Rate API**: Provides real-time currency exchange rates for multi-currency support and conversions.
+- **Email OTP API**: `http://app.c360.zone/tekroi_api/api/email_send` is used for sending email-based One-Time Passwords for password reset functionality.
+- **Supabase**: Provides the PostgreSQL database infrastructure.
