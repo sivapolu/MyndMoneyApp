@@ -3,16 +3,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Send, Loader2, Check, X, Calendar, Tag, Wallet as WalletIcon } from "lucide-react";
+import { Send, Loader2, Check, X, Calendar, Tag, Wallet as WalletIcon, TrendingDown, TrendingUp } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { ChatMessage } from "@shared/schema";
 
 export default function Chat() {
+  const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       role: 'system',
-      content: 'Hi! I\'m your finance assistant. You can tell me about your expenses in natural language, like "Spent ₹800 on food with Varun" or "Earned ₹50000 from freelance work".',
+      content: 'Hi! I\'m your finance assistant. You can tell me about your expenses and income in natural language, like "Spent ₹800 on food" or "Earned ₹50000 from salary".',
       timestamp: new Date(),
     },
   ]);
@@ -30,7 +31,8 @@ export default function Chat() {
 
   const parseMutation = useMutation({
     mutationFn: async (text: string) => {
-      return await apiRequest('POST', '/api/chat/parse', { text });
+      const response = await apiRequest('POST', '/api/chat/parse', { text, type: transactionType });
+      return await response.json();
     },
     onSuccess: (data) => {
       const assistantMessage: ChatMessage = {
@@ -107,8 +109,48 @@ export default function Chat() {
     });
   };
 
+  const suggestions = transactionType === 'expense'
+    ? [
+        'Spent ₹500 on groceries',
+        'Paid ₹2000 for electricity bill',
+        'Coffee with friends ₹300',
+      ]
+    : [
+        'Earned ₹50000 from salary',
+        'Freelance payment ₹15000',
+        'Gift received ₹5000',
+      ];
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-[calc(100vh-2rem)]">
+      {/* Transaction Type Toggle */}
+      <div className="p-4 border-b border-border">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex gap-2">
+            <Button
+              variant={transactionType === 'expense' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransactionType('expense')}
+              className="flex-1"
+              data-testid="button-expense-mode"
+            >
+              <TrendingDown className="h-4 w-4 mr-2" />
+              Expense
+            </Button>
+            <Button
+              variant={transactionType === 'income' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransactionType('income')}
+              className="flex-1"
+              data-testid="button-income-mode"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Income
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24 lg:pb-4">
         {messages.map((message) => (
@@ -205,7 +247,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Spent ₹800 on food..."
+              placeholder={transactionType === 'expense' ? 'Spent ₹800 on food...' : 'Earned ₹50000 from salary...'}
               className="border-0 focus-visible:ring-0 bg-transparent"
               disabled={parseMutation.isPending}
               data-testid="input-chat"
@@ -223,11 +265,7 @@ export default function Chat() {
           
           {/* Quick Suggestions */}
           <div className="flex gap-2 mt-3 flex-wrap">
-            {[
-              'Spent ₹500 on groceries',
-              'Earned ₹50000 from salary',
-              'Paid ₹2000 for electricity bill',
-            ].map((suggestion, index) => (
+            {suggestions.map((suggestion, index) => (
               <Button
                 key={index}
                 variant="outline"
