@@ -16,6 +16,7 @@ import Accounts from "@/pages/accounts";
 import Goals from "@/pages/goals";
 import Categories from "@/pages/categories";
 import Reports from "@/pages/reports";
+import Analytics from "@/pages/analytics";
 import Insights from "@/pages/insights";
 import Settings from "@/pages/settings";
 import Auth from "@/pages/auth";
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/goals" component={Goals} />
       <Route path="/categories" component={Categories} />
       <Route path="/reports" component={Reports} />
+      <Route path="/analytics" component={Analytics} />
       <Route path="/insights" component={Insights} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
