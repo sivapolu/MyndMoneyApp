@@ -3,10 +3,12 @@
 ## Overview
 MyndMoney is a comprehensive personal finance tracking application with AI-powered expense parsing, budgeting tools, multi-currency support, and secure user authentication. Built with a beautiful, modern UI following professional design guidelines.
 
-## Current State (October 9, 2025)
-✅ **Authentication Implemented**
-- Replit Auth integration with Google, GitHub, Apple, and email/password login
-- PostgreSQL database for persistent storage
+## Current State (October 10, 2025)
+✅ **Custom Authentication Implemented**
+- Email/password authentication with Passport.js
+- Secure password hashing using scrypt
+- Encrypted OpenAI API key storage per user (AES-256-CBC with KDF)
+- PostgreSQL sessions with connect-pg-simple
 - User-scoped data isolation
 - Secure session management
 
@@ -17,9 +19,10 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 - AI integration with defensive fallback handling
 
 ## Recent Changes
-- **AI Model Selection (Latest)**: Added user preference for AI model in settings with dropdown selector (GPT-5, GPT-4.1, GPT-4o variants). Chat parsing now uses user's selected model.
+- **Custom Authentication (Latest - Oct 10)**: Replaced Replit Auth with email/password authentication. Users can now input their own OpenAI API keys for AI-powered expense parsing.
+- **Security Hardening**: Implemented scrypt-based key derivation for encryption, proper error handling in logout, and validation for encryption secrets
+- **AI Model Selection**: Added user preference for AI model in settings with dropdown selector (GPT-5, GPT-4.1, GPT-4o variants). Chat parsing now uses user's selected model and personal API key
 - **Branding**: Integrated custom MyndMoney logo with head silhouette and dollar sign design across landing page and sidebar
-- **Authentication**: Implemented Replit Auth with PostgreSQL, user signup/login, data isolation per user, landing page for logged-out users, and logout functionality
 - **Schema & Frontend (Task 1)**: Defined complete data models for transactions, budgets, accounts, goals, and categories. Built all React components with exceptional visual quality following design_guidelines.md
 - **Backend Implementation (Task 2)**: Implemented all API endpoints, OpenAI AI integration with fallback parsing, currency exchange rate API, and business logic
 - **Integration & Testing (Task 3)**: Connected frontend to backend, fixed schema validation issues, implemented proper type coercion, and successfully tested all features
@@ -28,10 +31,11 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 
 ### Core MVP Features
 1. **User Authentication**
-   - Secure login with Replit Auth (Google, GitHub, Apple, email/password)
-   - User signup and account management
+   - Custom email/password authentication with Passport.js
+   - Secure password hashing using scrypt algorithm
+   - PostgreSQL session storage with connect-pg-simple
+   - User signup, login, and logout functionality
    - Protected routes with session management
-   - Logout functionality
    - Data isolation per user
 
 2. **Dashboard**
@@ -44,7 +48,8 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 
 3. **AI-Powered Expense Entry**
    - Chat-style natural language input
-   - OpenAI GPT-5 parsing (with regex fallback)
+   - Uses user's personal OpenAI API key (encrypted storage)
+   - OpenAI GPT-5 parsing with fallback to Replit AI or regex
    - Auto-categorization of expenses
    - Transaction preview and confirmation
    - Quick suggestion buttons
@@ -69,6 +74,8 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
    - Achievement indicators
 
 7. **Settings**
+   - OpenAI API key input (encrypted storage with AES-256-CBC)
+   - AI model selection (GPT-5, GPT-4.1, GPT-4o variants)
    - Theme toggle (light/dark mode)
    - Notification preferences
    - Privacy controls
@@ -78,8 +85,9 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 ### Technical Stack
 - **Frontend**: React, Wouter, TanStack Query, Shadcn UI, Tailwind CSS
 - **Backend**: Express.js, PostgreSQL (Neon), Drizzle ORM
-- **Authentication**: Replit Auth (OpenID Connect)
-- **AI**: OpenAI GPT-5 via Replit AI Integrations (with regex fallback)
+- **Authentication**: Passport.js with Local Strategy (email/password)
+- **Security**: Scrypt password hashing, AES-256-CBC API key encryption with KDF
+- **AI**: User's personal OpenAI API key with fallback to Replit AI Integrations or regex
 - **APIs**: Exchange Rate API for currency conversion
 
 ## Project Architecture
