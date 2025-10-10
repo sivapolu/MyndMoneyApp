@@ -26,6 +26,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { aiModel } = req.body;
+      
+      if (!aiModel) {
+        return res.status(400).json({ error: "AI model is required" });
+      }
+      
+      const updatedUser = await storage.updateUserAiModel(userId, aiModel);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user preferences:", error);
+      res.status(500).json({ message: "Failed to update user preferences" });
+    }
+  });
+
   // Categories (public - not user-specific)
   app.get("/api/categories", async (req, res) => {
     try {
