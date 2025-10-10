@@ -77,7 +77,7 @@ export function AppSidebar() {
           <img 
             src={logoPath} 
             alt="MyndMoney Logo" 
-            className="h-16 w-auto object-contain brightness-110 contrast-125 saturate-125"
+            className="h-20 w-auto object-contain brightness-110 contrast-125 saturate-125"
           />
         </div>
       </SidebarHeader>
