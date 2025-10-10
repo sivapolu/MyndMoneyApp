@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Wallet, TrendingUp, Target, Sparkles, Shield, Zap } from "lucide-react";
+import logoPath from "@assets/ChatGPT Image Oct 10, 2025, 12_45_55 AM_1760043891915.png";
 
 export default function Landing() {
   return (
@@ -9,9 +10,12 @@ export default function Landing() {
       <div className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-6">
-              <Wallet className="h-12 w-12 text-primary" />
-              <h1 className="text-5xl font-bold text-foreground">MyndMoney</h1>
+            <div className="flex items-center justify-center mb-6">
+              <img 
+                src={logoPath} 
+                alt="MyndMoney Logo" 
+                className="h-32 w-auto object-contain"
+              />
             </div>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
               Smart Finance Tracker with AI-powered expense parsing, budgeting tools, and multi-currency support

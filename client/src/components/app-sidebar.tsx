@@ -12,6 +12,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
+import logoPath from "@assets/ChatGPT Image Oct 10, 2025, 12_45_55 AM_1760043891915.png";
 
 const menuItems = [
   {
@@ -48,13 +49,11 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-chart-1 to-chart-2 flex items-center justify-center">
-            <span className="text-xl font-display font-semibold text-white">M</span>
-          </div>
-          <div>
-            <h2 className="font-display font-semibold text-lg text-sidebar-foreground">MyndMoney</h2>
-            <p className="text-xs text-muted-foreground">Smart Finance Tracker</p>
-          </div>
+          <img 
+            src={logoPath} 
+            alt="MyndMoney Logo" 
+            className="h-12 w-auto object-contain"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent>
