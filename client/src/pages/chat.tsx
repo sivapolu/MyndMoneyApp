@@ -110,10 +110,25 @@ export default function Chat() {
       return await response.json();
     },
     onSuccess: (data) => {
+      // Get currency symbol from detected currency
+      const getCurrencySymbol = (currency: string) => {
+        const symbols: Record<string, string> = {
+          'USD': '$',
+          'EUR': '€',
+          'GBP': '£',
+          'INR': '₹',
+          'JPY': '¥',
+          'AUD': 'A$',
+          'CAD': 'C$',
+        };
+        return symbols[currency] || currency + ' ';
+      };
+      
+      const currencySymbol = getCurrencySymbol(data.ocrResult?.currency || 'INR');
       const assistantMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `Receipt scanned successfully! I found:${data.ocrResult?.merchant ? `\n📍 Merchant: ${data.ocrResult.merchant}` : ''}${data.ocrResult?.total ? `\n💰 Total: ₹${data.ocrResult.total}` : ''}`,
+        content: `Receipt scanned successfully! I found:${data.ocrResult?.merchant ? `\n📍 Merchant: ${data.ocrResult.merchant}` : ''}${data.ocrResult?.total ? `\n💰 Total: ${currencySymbol}${data.ocrResult.total}` : ''}`,
         timestamp: new Date(),
         transactionPreview: data.transaction,
         transactionPreviews: [data.transaction],

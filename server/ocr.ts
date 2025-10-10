@@ -9,6 +9,7 @@ interface OCRResult {
   merchant?: string;
   date?: string;
   total?: number;
+  currency?: string;
   items?: Array<{ description: string; amount: number }>;
   rawText: string;
 }
@@ -39,6 +40,7 @@ export async function extractDataWithVision(
   "merchant": "Store/Restaurant name",
   "date": "Transaction date in YYYY-MM-DD format",
   "total": <total amount as number>,
+  "currency": "Currency code (USD, EUR, INR, GBP, etc.)",
   "items": [
     {"description": "item name", "amount": <price as number>}
   ],
@@ -48,6 +50,8 @@ export async function extractDataWithVision(
 Rules:
 - Extract merchant name from the top of the receipt
 - Find the total amount (may be labeled as Total, Amount, Grand Total, etc.)
+- Detect the currency from symbols ($=USD, €=EUR, ₹=INR, £=GBP) or text (USD, EUR, INR, etc.)
+- If no currency is found, default to "INR"
 - Extract individual line items with their prices if visible
 - Convert all amounts to numbers (remove currency symbols)
 - If date is not found, return null
@@ -84,6 +88,7 @@ Rules:
       merchant: parsed.merchant || undefined,
       date: parsed.date || undefined,
       total: parsed.total ? Number(parsed.total) : undefined,
+      currency: parsed.currency || 'INR',
       items: parsed.items || undefined,
       rawText: parsed.rawText || '',
     };
@@ -177,6 +182,7 @@ export async function extractDataFromPDF(
   "merchant": "Store/Restaurant name",
   "date": "Transaction date in YYYY-MM-DD format",
   "total": <total amount as number>,
+  "currency": "Currency code (USD, EUR, INR, GBP, etc.)",
   "items": [
     {"description": "item name", "amount": <price as number>}
   ],
@@ -186,6 +192,8 @@ export async function extractDataFromPDF(
 Rules:
 - Extract merchant name from the top of the receipt
 - Find the total amount (may be labeled as Total, Amount, Grand Total, etc.)
+- Detect the currency from symbols ($=USD, €=EUR, ₹=INR, £=GBP) or text (USD, EUR, INR, etc.)
+- If no currency is found, default to "INR"
 - Extract individual line items with their prices if visible
 - Convert all amounts to numbers (remove currency symbols)
 - If date is not found, return null
@@ -221,6 +229,7 @@ ${extractedText}`;
       merchant: parsed.merchant || undefined,
       date: parsed.date || undefined,
       total: parsed.total ? Number(parsed.total) : undefined,
+      currency: parsed.currency || 'INR',
       items: parsed.items || undefined,
       rawText: extractedText,
     };
