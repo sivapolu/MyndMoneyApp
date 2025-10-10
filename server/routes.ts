@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { parseExpenseFromText } from "./openai";
 import { getExchangeRates, convertCurrency } from "./currency";
-import { setupAuth, isAuthenticated } from "./auth";
+import { setupAuth, isAuthenticated, encrypt } from "./auth";
 import { seedCategories } from "./seed";
 import { insertCategorySchema, insertAccountSchema, insertTransactionSchema, insertBudgetSchema, insertGoalSchema } from "@shared/schema";
 
@@ -28,7 +28,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       if (openaiApiKey !== undefined) {
-        const updatedUser = await storage.updateUserOpenAIKey(userId, openaiApiKey);
+        const encryptedKey = openaiApiKey ? encrypt(openaiApiKey) : '';
+        const updatedUser = await storage.updateUserOpenAIKey(userId, encryptedKey);
         const { password: _, ...userWithoutPassword } = updatedUser;
         return res.json(userWithoutPassword);
       }
@@ -206,12 +207,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Text is required" });
       }
 
-      // Get user's AI model preference
+      // Get user's AI model preference and API key
       const user = await storage.getUser(userId);
       const aiModel = user?.aiModel || "gpt-4.1-mini";
+      const userOpenAIKey = user?.openaiApiKey || null;
 
-      // Parse expense using OpenAI with user's preferred model
-      const parsed = await parseExpenseFromText(text, aiModel);
+      // Parse expense using OpenAI with user's preferred model and API key
+      const parsed = await parseExpenseFromText(text, aiModel, userOpenAIKey);
       
       // Find matching category
       const categories = await storage.getCategories();
