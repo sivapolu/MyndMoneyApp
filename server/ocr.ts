@@ -2,9 +2,6 @@ import FormData from 'form-data';
 import OpenAI from 'openai';
 import { decryptApiKey } from './auth';
 
-// pdf-parse is a CommonJS module, need to use require
-const pdfParse = require('pdf-parse');
-
 interface OCRResult {
   merchant?: string;
   date?: string;
@@ -164,9 +161,13 @@ export async function extractDataFromPDF(
   }
 
   try {
-    // Extract text from PDF
-    const pdfData = await pdfParse(pdfBuffer);
-    const extractedText = pdfData.text;
+    // Extract text from PDF using dynamic import (pdf-parse v2 class-based API)
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: pdfBuffer });
+    const textResult = await parser.getText();
+    await parser.destroy(); // Clean up resources
+    
+    const extractedText = textResult.text;
 
     if (!extractedText || extractedText.trim().length === 0) {
       throw new Error('No text found in PDF');
@@ -176,30 +177,54 @@ export async function extractDataFromPDF(
     const apiKey = decryptApiKey(encryptedApiKey);
     const openai = new OpenAI({ apiKey });
 
-    const prompt = `You are a receipt/bill OCR expert. Analyze this text extracted from a PDF receipt and extract the following information in JSON format:
+    // Check if this is a bank statement (contains multiple transactions)
+    const isBankStatement = extractedText.toLowerCase().includes('statement') || 
+                            (extractedText.match(/(\d{2}\/\d{2}\/\d{2,4})/g)?.length || 0) > 5;
+
+    const prompt = isBankStatement 
+      ? `You are a bank statement analyzer. Extract ALL transactions from this bank statement and return them in JSON format.
 
 {
-  "merchant": "Store/Restaurant name",
-  "date": "Transaction date in YYYY-MM-DD format",
-  "total": <total amount as number>,
-  "currency": "Currency code (USD, EUR, INR, GBP, etc.)",
-  "items": [
-    {"description": "item name", "amount": <price as number>}
-  ],
-  "rawText": "All text from the receipt"
+  "merchant": "Bank name",
+  "currency": "INR",
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",
+      "description": "transaction description",
+      "amount": <amount as number>,
+      "type": "debit" or "credit"
+    }
+  ]
 }
 
 Rules:
-- Extract merchant name from the top of the receipt
-- Find the total amount (may be labeled as Total, Amount, Grand Total, etc.)
-- Detect the currency from symbols ($=USD, €=EUR, ₹=INR, £=GBP) or text (USD, EUR, INR, etc.)
-- If no currency is found, default to "INR"
-- Extract individual line items with their prices if visible
-- Convert all amounts to numbers (remove currency symbols)
-- If date is not found, return null
-- Return only valid JSON
+- Extract EVERY transaction from the statement
+- Identify deposits/credits as type "credit" (income)
+- Identify withdrawals/debits as type "debit" (expense) 
+- Detect currency from symbols ($, €, ₹, £) or country
+- Convert dates to YYYY-MM-DD format
+- Return ONLY valid JSON
 
-Receipt text:
+Bank Statement:
+${extractedText.substring(0, 15000)}`
+      : `You are a receipt/bill OCR expert. Analyze this text and extract the following in JSON format:
+
+{
+  "merchant": "Store/Restaurant name",
+  "date": "YYYY-MM-DD",
+  "total": <total amount>,
+  "currency": "Currency code",
+  "items": [{"description": "item", "amount": <price>}],
+  "rawText": "All text"
+}
+
+Rules:
+- Extract merchant, total, currency, items
+- Detect currency from symbols ($=USD, €=EUR, ₹=INR, £=GBP)
+- Default to "INR" if no currency found
+- Return ONLY valid JSON
+
+Receipt:
 ${extractedText}`;
 
     const response = await openai.chat.completions.create({
@@ -207,7 +232,7 @@ ${extractedText}`;
       messages: [
         {
           role: 'system',
-          content: 'You are a financial assistant that extracts structured data from receipts and bills.',
+          content: 'You are a financial assistant that extracts structured data from receipts and bank statements.',
         },
         {
           role: 'user',
@@ -215,23 +240,51 @@ ${extractedText}`;
         },
       ],
       response_format: { type: 'json_object' },
-      max_completion_tokens: 1000,
+      max_completion_tokens: isBankStatement ? 8000 : 1000,
     });
 
     const content = response.choices[0]?.message?.content;
+    const finishReason = response.choices[0]?.finish_reason;
+    
     if (!content) {
       throw new Error('No response from OpenAI');
     }
 
-    const parsed = JSON.parse(content);
+    // Check if response was truncated due to token limit
+    if (finishReason === 'length') {
+      console.warn('OpenAI response was truncated due to token limit');
+      throw new Error('Bank statement is too large. The AI response was truncated. Please try uploading a statement with fewer transactions or contact support.');
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (parseError: any) {
+      console.error('JSON Parse Error:', parseError.message);
+      console.error('OpenAI Response (first 500 chars):', content.substring(0, 500));
+      console.error('OpenAI Response (last 200 chars):', content.substring(Math.max(0, content.length - 200)));
+      console.error('Finish reason:', finishReason);
+      throw new Error(`Failed to parse AI response. The response may be incomplete or malformed.`);
+    }
     
+    // Handle bank statements with multiple transactions
+    if (isBankStatement && parsed.transactions) {
+      return {
+        merchant: parsed.merchant || 'Bank Statement',
+        currency: parsed.currency || 'INR',
+        items: parsed.transactions || [],
+        rawText: `Bank Statement with ${parsed.transactions?.length || 0} transactions`,
+      };
+    }
+    
+    // Handle regular receipts
     return {
       merchant: parsed.merchant || undefined,
       date: parsed.date || undefined,
       total: parsed.total ? Number(parsed.total) : undefined,
       currency: parsed.currency || 'INR',
       items: parsed.items || undefined,
-      rawText: extractedText,
+      rawText: extractedText.substring(0, 1000),
     };
   } catch (error: any) {
     console.error('PDF extraction error:', error);

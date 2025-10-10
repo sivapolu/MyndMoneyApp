@@ -139,15 +139,29 @@ export default function Chat() {
       };
       
       const currencySymbol = getCurrencySymbol(data.ocrResult?.currency || 'INR');
-      const assistantMessage: ChatMessage = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: `Receipt scanned successfully!${data.ocrResult?.merchant ? `\nMerchant: ${data.ocrResult.merchant}` : ''}${data.ocrResult?.total ? `\nTotal: ${currencySymbol}${data.ocrResult.total}` : ''}`,
-        timestamp: new Date(),
-        transactionPreview: data.transaction,
-        transactionPreviews: [data.transaction],
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Handle bank statements with multiple transactions
+      if (data.isBankStatement && data.transactions) {
+        const assistantMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `Bank statement scanned successfully!\n\n${data.ocrResult?.merchant || 'Bank Statement'}\nFound ${data.ocrResult?.transactionCount || data.transactions.length} transactions\nCurrency: ${currencySymbol}\n\nClick "Add All" below to import all transactions.`,
+          timestamp: new Date(),
+          transactionPreviews: data.transactions,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      } else {
+        // Handle regular receipt
+        const assistantMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `Receipt scanned successfully!${data.ocrResult?.merchant ? `\nMerchant: ${data.ocrResult.merchant}` : ''}${data.ocrResult?.total ? `\nTotal: ${currencySymbol}${data.ocrResult.total}` : ''}`,
+          timestamp: new Date(),
+          transactionPreview: data.transaction,
+          transactionPreviews: [data.transaction],
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+      }
     },
     onError: (error: any) => {
       const errorMessage: ChatMessage = {
