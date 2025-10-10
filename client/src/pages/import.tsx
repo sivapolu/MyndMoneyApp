@@ -131,10 +131,9 @@ export default function ImportPage() {
   });
 
   const parseCSV = (text: string): CSVRow[] => {
-    const result = Papa.parse(text, {
+    const result: any = Papa.parse(text, {
       header: true,
       skipEmptyLines: true,
-      trimHeaders: true,
       delimiter: "", // Auto-detect
     });
     
@@ -398,12 +397,92 @@ export default function ImportPage() {
     importMutation.mutate(previewTransactions);
   };
 
+  const generateBudgetPreview = () => {
+    if (!budgetMapping.category || !budgetMapping.amount) {
+      toast({
+        variant: "destructive",
+        title: "Missing required mappings",
+        description: "Please map Category and Amount columns",
+      });
+      return;
+    }
+
+    const unknownCategories: string[] = [];
+    const budgets: MappedBudget[] = csvData.map((row, idx) => {
+      const categoryName = row[budgetMapping.category]?.trim();
+      
+      if (!categoryName) {
+        return null; // Skip rows with empty category
+      }
+
+      const category = categories?.find(c => 
+        c.name.toLowerCase() === categoryName.toLowerCase()
+      );
+
+      if (!category) {
+        unknownCategories.push(`"${categoryName}" (row ${idx + 1})`);
+      }
+
+      const amount = parseFloat(row[budgetMapping.amount]?.replace(/[^0-9.-]/g, '') || '0');
+      
+      let period = defaultPeriod;
+      if (budgetMapping.period && row[budgetMapping.period]) {
+        const periodValue = row[budgetMapping.period].toLowerCase();
+        if (periodValue === 'weekly' || periodValue === 'monthly' || periodValue === 'yearly') {
+          period = periodValue;
+        }
+      }
+
+      let startDate: string | undefined;
+      if (budgetMapping.startDate && row[budgetMapping.startDate]) {
+        const parsedDate = parseDate(row[budgetMapping.startDate], idx + 1);
+        startDate = parsedDate.date;
+      }
+
+      return {
+        categoryId: category?.id || '',
+        amount,
+        period,
+        startDate,
+      };
+    }).filter((b): b is MappedBudget => b !== null && !!b.categoryId && b.amount > 0);
+
+    if (unknownCategories.length > 0) {
+      toast({
+        variant: "destructive",
+        title: `Unknown categories (${unknownCategories.length})`,
+        description: unknownCategories.slice(0, 3).join(', ') + (unknownCategories.length > 3 ? '...' : ''),
+      });
+    }
+
+    setPreviewBudgets(budgets);
+    toast({
+      title: "Preview generated",
+      description: `${budgets.length} budgets ready to import`,
+    });
+  };
+
+  const handleBudgetImport = () => {
+    if (previewBudgets.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No budgets",
+        description: "Please generate preview first",
+      });
+      return;
+    }
+
+    importBudgetMutation.mutate(previewBudgets);
+  };
+
   const resetImport = () => {
     setFile(null);
     setCsvData([]);
     setHeaders([]);
     setColumnMapping({ date: '', description: '', amount: '', type: '', category: '' });
+    setBudgetMapping({ category: '', amount: '', period: '', startDate: '' });
     setPreviewTransactions([]);
+    setPreviewBudgets([]);
     setParseErrors([]);
     setDateFormat('auto');
   };
@@ -424,47 +503,110 @@ export default function ImportPage() {
     window.URL.revokeObjectURL(url);
   };
 
+  const downloadBudgetSample = () => {
+    const sampleCSV = `Category,Amount,Period,StartDate
+Groceries,15000,monthly,2024-01-01
+Transportation,3000,monthly,2024-01-01
+Food & Dining,8000,monthly,2024-01-01
+Entertainment,2000,weekly,2024-01-01`;
+
+    const blob = new Blob([sampleCSV], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'sample_budgets.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
       <div>
         <h1 className="text-3xl font-display font-bold">Import Data</h1>
-        <p className="text-muted-foreground mt-1">Upload CSV files to import historical transactions</p>
+        <p className="text-muted-foreground mt-1">Upload CSV files to import financial data</p>
       </div>
 
-      {/* Instructions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>How to Import</CardTitle>
-          <CardDescription>Follow these steps to import your financial data</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">1</div>
-            <div>
-              <p className="font-medium">Prepare your CSV file</p>
-              <p className="text-sm text-muted-foreground">Export transactions from your bank or create a CSV with columns: Date, Description, Amount</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">2</div>
-            <div>
-              <p className="font-medium">Upload and map columns</p>
-              <p className="text-sm text-muted-foreground">Map your CSV columns to transaction fields (we'll auto-detect common formats)</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">3</div>
-            <div>
-              <p className="font-medium">Preview and import</p>
-              <p className="text-sm text-muted-foreground">Review the data and import to add transactions to your account</p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={downloadSample} className="mt-2" data-testid="button-download-sample">
-            <Download className="h-4 w-4 mr-2" />
-            Download Sample CSV
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Import Type Tabs */}
+      <Tabs value={importType} onValueChange={(v) => setImportType(v as typeof importType)} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="transactions" data-testid="tab-transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="budgets" data-testid="tab-budgets">Budgets</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="transactions" className="space-y-6 mt-6">
+          {/* Instructions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>How to Import Transactions</CardTitle>
+              <CardDescription>Follow these steps to import your financial data</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">1</div>
+                <div>
+                  <p className="font-medium">Prepare your CSV file</p>
+                  <p className="text-sm text-muted-foreground">Export transactions from your bank or create a CSV with columns: Date, Description, Amount</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">2</div>
+                <div>
+                  <p className="font-medium">Upload and map columns</p>
+                  <p className="text-sm text-muted-foreground">Map your CSV columns to transaction fields (we'll auto-detect common formats)</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">3</div>
+                <div>
+                  <p className="font-medium">Preview and import</p>
+                  <p className="text-sm text-muted-foreground">Review the data and import to add transactions to your account</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={downloadSample} className="mt-2" data-testid="button-download-sample">
+                <Download className="h-4 w-4 mr-2" />
+                Download Sample CSV
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="budgets" className="space-y-6 mt-6">
+          {/* Budget Instructions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>How to Import Budgets</CardTitle>
+              <CardDescription>Follow these steps to import budget data</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">1</div>
+                <div>
+                  <p className="font-medium">Prepare your CSV file</p>
+                  <p className="text-sm text-muted-foreground">Create a CSV with columns: Category, Amount, Period (weekly/monthly/yearly)</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">2</div>
+                <div>
+                  <p className="font-medium">Upload and map columns</p>
+                  <p className="text-sm text-muted-foreground">Map your CSV columns to budget fields</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">3</div>
+                <div>
+                  <p className="font-medium">Preview and import</p>
+                  <p className="text-sm text-muted-foreground">Review the data and import to set up your budgets</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={downloadBudgetSample} className="mt-2" data-testid="button-download-budget-sample">
+                <Download className="h-4 w-4 mr-2" />
+                Download Sample Budget CSV
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* File Upload */}
       <Card>
@@ -505,8 +647,8 @@ export default function ImportPage() {
         </CardContent>
       </Card>
 
-      {/* Column Mapping */}
-      {headers.length > 0 && (
+      {/* Transaction Column Mapping */}
+      {headers.length > 0 && importType === 'transactions' && (
         <Card>
           <CardHeader>
             <CardTitle>Map Columns</CardTitle>
@@ -617,6 +759,91 @@ export default function ImportPage() {
         </Card>
       )}
 
+      {/* Budget Column Mapping */}
+      {headers.length > 0 && importType === 'budgets' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Map Budget Columns</CardTitle>
+            <CardDescription>Match your CSV columns to budget fields</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Category Column *</Label>
+                <Select value={budgetMapping.category} onValueChange={(v) => setBudgetMapping(prev => ({ ...prev, category: v }))}>
+                  <SelectTrigger data-testid="select-budget-category-column">
+                    <SelectValue placeholder="Select category column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {headers.map(h => (
+                      <SelectItem key={h} value={h}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Amount Column *</Label>
+                <Select value={budgetMapping.amount} onValueChange={(v) => setBudgetMapping(prev => ({ ...prev, amount: v }))}>
+                  <SelectTrigger data-testid="select-budget-amount-column">
+                    <SelectValue placeholder="Select amount column" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {headers.map(h => (
+                      <SelectItem key={h} value={h}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Period Column (Optional)</Label>
+                <Select value={budgetMapping.period} onValueChange={(v) => setBudgetMapping(prev => ({ ...prev, period: v }))}>
+                  <SelectTrigger data-testid="select-budget-period-column">
+                    <SelectValue placeholder="Use default period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Use default</SelectItem>
+                    {headers.map(h => (
+                      <SelectItem key={h} value={h}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Start Date Column (Optional)</Label>
+                <Select value={budgetMapping.startDate} onValueChange={(v) => setBudgetMapping(prev => ({ ...prev, startDate: v }))}>
+                  <SelectTrigger data-testid="select-budget-startdate-column">
+                    <SelectValue placeholder="Use current date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Use current date</SelectItem>
+                    {headers.map(h => (
+                      <SelectItem key={h} value={h}>{h}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Default Period</Label>
+              <Select value={defaultPeriod} onValueChange={(v) => setDefaultPeriod(v as typeof defaultPeriod)}>
+                <SelectTrigger data-testid="select-default-period">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Used when period column is empty</p>
+            </div>
+            <Button onClick={generateBudgetPreview} className="w-full" data-testid="button-generate-budget-preview">
+              Generate Preview
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Parse Errors */}
       {parseErrors.length > 0 && (
         <Card className="border-destructive/50 bg-destructive/5">
@@ -643,8 +870,8 @@ export default function ImportPage() {
         </Card>
       )}
 
-      {/* Preview */}
-      {previewTransactions.length > 0 && (
+      {/* Transaction Preview */}
+      {previewTransactions.length > 0 && importType === 'transactions' && (
         <Card>
           <CardHeader>
             <CardTitle>Preview ({previewTransactions.length} transactions)</CardTitle>
@@ -679,6 +906,50 @@ export default function ImportPage() {
                 {importMutation.isPending ? 'Importing...' : `Import ${previewTransactions.length} Transactions`}
               </Button>
               <Button variant="outline" onClick={resetImport} data-testid="button-reset-import">
+                Reset
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Budget Preview */}
+      {previewBudgets.length > 0 && importType === 'budgets' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Preview ({previewBudgets.length} budgets)</CardTitle>
+            <CardDescription>Review before importing</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {previewBudgets.slice(0, 10).map((budget, idx) => {
+                const category = categories?.find(c => c.id === budget.categoryId);
+                return (
+                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg" data-testid={`preview-budget-${idx}`}>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{category?.name || 'Unknown Category'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {budget.period.charAt(0).toUpperCase() + budget.period.slice(1)} Budget
+                        {budget.startDate && ` • Starts ${new Date(budget.startDate).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    <div className="font-semibold text-primary">
+                      ₹{budget.amount.toFixed(2)}
+                    </div>
+                  </div>
+                );
+              })}
+              {previewBudgets.length > 10 && (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  ... and {previewBudgets.length - 10} more
+                </p>
+              )}
+            </div>
+            <div className="flex gap-3 mt-4">
+              <Button onClick={handleBudgetImport} className="flex-1" disabled={importBudgetMutation.isPending} data-testid="button-import-budgets">
+                {importBudgetMutation.isPending ? 'Importing...' : `Import ${previewBudgets.length} Budgets`}
+              </Button>
+              <Button variant="outline" onClick={resetImport} data-testid="button-reset-budget-import">
                 Reset
               </Button>
             </div>
