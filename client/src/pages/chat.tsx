@@ -253,8 +253,8 @@ export default function Chat() {
 
   return (
     <div className="relative flex flex-col h-screen overflow-hidden">
-      {/* Gradient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-950 dark:via-blue-950 dark:to-purple-950" />
+      {/* Gradient Background - Navy Blue Theme */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#E8EDF4] via-[#F0F3F8] to-[#FFF9F0] dark:from-[#0A1525] dark:via-[#1C2F4A] dark:to-[#1A1410]" />
       
       {/* Watermark Logo */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -266,10 +266,10 @@ export default function Chat() {
       </div>
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between p-4 bg-white/40 dark:bg-slate-900/40 backdrop-blur-lg border-b border-white/20 dark:border-slate-700/20">
+      <header className="relative z-10 flex items-center justify-between p-4 bg-white/40 dark:bg-[#1C2F4A]/40 backdrop-blur-lg border-b border-[#C8A046]/20">
         <div className="flex items-center gap-3">
           <SidebarTrigger data-testid="button-sidebar-toggle" className="lg:flex" />
-          <h1 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-lg font-semibold bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] dark:from-[#C8A046] dark:to-[#E5C06F] bg-clip-text text-transparent">
             MyndMoney
           </h1>
         </div>
@@ -287,17 +287,17 @@ export default function Chat() {
         </div>
       </header>
 
-      {/* Transaction Type Toggle - GenZ Style */}
+      {/* Transaction Type Toggle - Navy & Gold Theme */}
       <div className="relative z-10 p-4">
         <div className="max-w-4xl mx-auto">
-          <div className="inline-flex p-1 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-full border border-white/20 dark:border-slate-700/20 shadow-lg">
+          <div className="inline-flex p-1 bg-white/60 dark:bg-[#1C2F4A]/60 backdrop-blur-md rounded-full border border-[#C8A046]/30 shadow-lg">
             <Button
               variant={transactionType === 'expense' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setTransactionType('expense')}
               className={`rounded-full px-6 transition-all duration-300 ${
                 transactionType === 'expense' 
-                  ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg' 
+                  ? 'bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg' 
                   : 'text-gray-600 dark:text-gray-300'
               }`}
               data-testid="button-expense-mode"
@@ -311,7 +311,7 @@ export default function Chat() {
               onClick={() => setTransactionType('income')}
               className={`rounded-full px-6 transition-all duration-300 ${
                 transactionType === 'income' 
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg' 
+                  ? 'bg-gradient-to-r from-[#1C2F4A] to-[#2A4A6F] text-white shadow-lg' 
                   : 'text-gray-600 dark:text-gray-300'
               }`}
               data-testid="button-income-mode"
@@ -334,10 +334,10 @@ export default function Chat() {
               <div
                 className={`max-w-[80%] rounded-3xl px-5 py-3 ${
                   message.role === 'user'
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-xl'
+                    ? 'bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] text-white shadow-xl'
                     : message.role === 'system'
-                    ? 'bg-white/70 dark:bg-slate-800/70 backdrop-blur-md text-gray-600 dark:text-gray-300 border border-white/20 dark:border-slate-700/20 shadow-lg'
-                    : 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/20 dark:border-slate-700/20 shadow-xl'
+                    ? 'bg-white/70 dark:bg-[#1C2F4A]/70 backdrop-blur-md text-gray-600 dark:text-gray-300 border border-[#C8A046]/20 shadow-lg'
+                    : 'bg-white/80 dark:bg-[#1C2F4A]/80 backdrop-blur-md border border-[#C8A046]/20 shadow-xl'
                 }`}
                 data-testid={`message-${message.id}`}
               >
@@ -349,8 +349,8 @@ export default function Chat() {
                       <Card key={index} className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm border-white/30 dark:border-slate-700/30 shadow-md">
                         <CardContent className="p-3 space-y-2">
                           <div className="flex items-center gap-2 text-sm">
-                            <WalletIcon className="h-4 w-4 text-purple-500" />
-                            <span className="font-bold tabular-nums bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+                            <WalletIcon className="h-4 w-4 text-[#C8A046]" />
+                            <span className="font-bold tabular-nums bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] dark:from-[#C8A046] dark:to-[#E5C06F] bg-clip-text text-transparent">
                               {formatCurrency(transaction.amount)}
                             </span>
                             <span className={`ml-auto px-3 py-1 rounded-full text-xs font-medium ${
@@ -379,7 +379,7 @@ export default function Chat() {
                         size="sm"
                         onClick={() => handleConfirm(message.transactionPreviews!)}
                         disabled={confirmMutation.isPending}
-                        className="flex-1 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg"
+                        className="flex-1 rounded-full bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg"
                         data-testid="button-confirm-transaction"
                       >
                         <Check className="h-4 w-4 mr-1" />
@@ -404,8 +404,8 @@ export default function Chat() {
           
           {parseMutation.isPending && (
             <div className="flex justify-start">
-              <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-white/20 dark:border-slate-700/20 rounded-3xl px-5 py-3 shadow-xl">
-                <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
+              <div className="bg-white/80 dark:bg-[#1C2F4A]/80 backdrop-blur-md border border-[#C8A046]/20 rounded-3xl px-5 py-3 shadow-xl">
+                <Loader2 className="h-4 w-4 animate-spin text-[#C8A046]" />
               </div>
             </div>
           )}
@@ -414,12 +414,12 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Floating Action Buttons - GenZ Style */}
+      {/* Floating Action Buttons - Navy & Gold Theme */}
       <div className="fixed right-6 bottom-32 lg:bottom-24 z-20 flex flex-col gap-3">
         <Button
           size="icon"
           onClick={() => setLocation('/analytics')}
-          className="rounded-full bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-2xl"
+          className="rounded-full bg-gradient-to-r from-[#1C2F4A] to-[#2A4A6F] text-white shadow-2xl"
           data-testid="button-fab-analytics"
           title="Analytics"
         >
@@ -428,7 +428,7 @@ export default function Chat() {
         <Button
           size="icon"
           onClick={() => setLocation('/insights')}
-          className="rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-2xl"
+          className="rounded-full bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-2xl"
           data-testid="button-fab-insights"
           title="AI Insights"
         >
@@ -436,10 +436,10 @@ export default function Chat() {
         </Button>
       </div>
 
-      {/* Input Bar - GenZ Style */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-t border-white/20 dark:border-slate-700/20">
+      {/* Input Bar - Navy & Gold Theme */}
+      <div className="fixed bottom-0 left-0 right-0 z-10 p-4 bg-white/60 dark:bg-[#1C2F4A]/60 backdrop-blur-xl border-t border-[#C8A046]/20">
         <div className="max-w-4xl mx-auto">
-          <div className="flex gap-3 items-center bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-2 border-purple-200 dark:border-purple-900/30 rounded-[28px] px-4 py-2 shadow-2xl">
+          <div className="flex gap-3 items-center bg-white/80 dark:bg-[#1C2F4A]/80 backdrop-blur-md border-2 border-[#C8A046]/30 rounded-[28px] px-4 py-2 shadow-2xl">
             <input
               ref={fileInputRef}
               type="file"
@@ -458,9 +458,9 @@ export default function Chat() {
               title="Scan receipt"
             >
               {ocrScanMutation.isPending ? (
-                <Loader2 className="animate-spin text-purple-500" />
+                <Loader2 className="animate-spin text-[#C8A046]" />
               ) : (
-                <Camera className="text-purple-500" />
+                <Camera className="text-[#C8A046]" />
               )}
             </Button>
             <Input
@@ -476,14 +476,14 @@ export default function Chat() {
               size="icon"
               onClick={handleSend}
               disabled={!input.trim() || parseMutation.isPending}
-              className="rounded-full shrink-0 bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg"
+              className="rounded-full shrink-0 bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] text-white shadow-lg"
               data-testid="button-send"
             >
               <Send />
             </Button>
           </div>
           
-          {/* Quick Suggestions - GenZ Pills */}
+          {/* Quick Suggestions - Navy & Gold Pills */}
           <div className="flex gap-2 mt-3 flex-wrap justify-center">
             {suggestions.map((suggestion, index) => (
               <Button
@@ -491,7 +491,7 @@ export default function Chat() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setInput(suggestion)}
-                className="rounded-full text-xs bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-white/30 dark:border-slate-700/30"
+                className="rounded-full text-xs bg-white/60 dark:bg-[#1C2F4A]/60 backdrop-blur-sm border border-[#C8A046]/30"
                 data-testid={`button-suggestion-${index}`}
               >
                 {suggestion}
