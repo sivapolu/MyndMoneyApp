@@ -4,6 +4,7 @@
 MyndMoney is a comprehensive personal finance tracking application designed to help users manage their finances effectively. It offers AI-powered expense parsing, robust budgeting tools, multi-currency support, and secure user authentication. The project aims to provide a modern, intuitive, and secure platform for personal financial management, distinguishing itself with advanced AI features and a professional user experience. MyndMoney seeks to empower users with insights into their spending habits, facilitate smart financial planning, and support wealth accumulation through goal tracking and predictive analytics.
 
 ## Recent Changes
+- **OCR Enhancement (Oct 10, 2025)**: Switched OCR scanning from OCR.space API to OpenAI Vision API (GPT-4o-vision). Now uses user's personal OpenAI API key for receipt/bill scanning with better accuracy. Added full PDF support - users can now upload both images (JPG, PNG) and PDF documents for automatic data extraction (merchant, date, total, line items). Requires users to have OpenAI API key configured in Settings.
 - **Database Schema Fix (Oct 10, 2025)**: Fixed critical production authentication error caused by Supabase's auth.users table conflicting with public.users. Updated all Drizzle schema tables to explicitly use `publicSchema.table()` instead of `pgTable()`, ensuring all queries target public.users regardless of search_path or PgBouncer settings. This resolves "column reset_token does not exist" errors in production.
 - **Logo Update (Oct 10, 2025)**: Replaced application logo with "Untitled design_1760082821987.png" featuring a gold head icon with dollar sign and "MyndMoney" text. Logo is displayed on both Login Page (w-48) and App Sidebar (h-20).
 - **Budget CSV Import**: Added budget import functionality with column mapping, preview, and bulk import capabilities.
@@ -25,7 +26,7 @@ The application features a modern, professional UI adhering to specific design g
 - **Frontend**: Built with React, Wouter for routing, TanStack Query for data fetching, Shadcn UI for components, and Tailwind CSS for styling.
 - **Backend**: Implemented using Express.js for the API, PostgreSQL (Supabase) as the database, and Drizzle ORM for database interactions.
 - **Authentication**: Custom email/password authentication using Passport.js with a local strategy. Passwords are secured with scrypt hashing, and user sessions are managed via `connect-pg-simple` storing sessions in PostgreSQL. Password reset uses an email-based OTP system via an external API.
-- **AI Integration**: Leverages personal OpenAI API keys (encrypted with AES-256-CBC) for natural language expense parsing and financial predictions. Supports multi-expense parsing and OCR receipt scanning. Fallback mechanisms are in place (Replit AI Integrations or regex parsing) if an OpenAI key is not provided. Users can select their preferred AI model (GPT-5, GPT-4.1, GPT-4o variants).
+- **AI Integration**: Leverages personal OpenAI API keys (encrypted with AES-256-CBC) for natural language expense parsing, OCR receipt/bill scanning (via Vision API), and financial predictions. Supports multi-expense parsing and PDF/image scanning with automatic extraction of merchant, date, total, and line items. Fallback mechanisms are in place (Replit AI Integrations or regex parsing) for text parsing if an OpenAI key is not provided. Users can select their preferred AI model (GPT-5, GPT-4.1, GPT-4o variants).
 - **Data Management**: All user data is strictly isolated. Transactions automatically update account balances.
 - **Data Import**: Comprehensive CSV data import functionality with intelligent column mapping, date format selection, accounting format support, auto-categorization, and error handling.
 
@@ -49,7 +50,6 @@ The application features a modern, professional UI adhering to specific design g
 
 ## External Dependencies
 - **OpenAI API**: Used for AI-powered natural language expense parsing, financial predictions, and insights. Users provide their own keys.
-- **OCR.space API**: Utilized for Optical Character Recognition (OCR) to extract data from uploaded receipts and bills.
 - **Exchange Rate API**: Provides real-time currency exchange rates for multi-currency support and conversions.
 - **Email OTP API**: `http://app.c360.zone/tekroi_api/api/email_send` is used for sending email-based One-Time Passwords for password reset functionality.
 - **Supabase**: Provides the PostgreSQL database infrastructure.

@@ -17,10 +17,10 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB max file size
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      cb(new Error('Only image files (JPG, PNG, etc.) and PDF documents are allowed'));
     }
   },
 });
@@ -186,7 +186,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: "Imported Transactions",
           type: "card",
           balance: 0,
-          currency: "INR"
+          currency: "INR",
+          icon: "CreditCard"
         }, userId);
       }
 
@@ -260,7 +261,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdBudgets = [];
       const errors = [];
 
-      for (const [index, budgetItem] of budgetData.entries()) {
+      for (let index = 0; index < budgetData.length; index++) {
+        const budgetItem = budgetData[index];
         try {
           const validated = insertBudgetSchema.parse(budgetItem);
           const budget = await storage.createBudget(validated, userId);
