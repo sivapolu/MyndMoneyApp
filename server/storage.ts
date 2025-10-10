@@ -47,7 +47,7 @@ export interface IStorage {
   getBudgets(userId: string): Promise<Budget[]>;
   getBudgetById(id: string, userId: string): Promise<Budget | undefined>;
   createBudget(budget: InsertBudget, userId: string): Promise<Budget>;
-  getCategorySpending(categoryId: string, userId: string): Promise<number>;
+  getCategorySpending(categoryId: string, userId: string, startDate?: Date, endDate?: Date): Promise<number>;
   
   // Goals (user-specific)
   getGoals(userId: string): Promise<Goal[]>;
@@ -258,25 +258,31 @@ export class DatabaseStorage implements IStorage {
     return budget;
   }
 
-  async getCategorySpending(categoryId: string, userId: string): Promise<number> {
+  async getCategorySpending(categoryId: string, userId: string, startDate?: Date, endDate?: Date): Promise<number> {
+    // Default to current month if no dates provided
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthStart = startDate || new Date(now.getFullYear(), now.getMonth(), 1);
     
     // Get category to determine type
     const category = await this.getCategoryById(categoryId);
     if (!category) return 0;
     
+    const conditions = [
+      eq(transactions.userId, userId),
+      eq(transactions.categoryId, categoryId),
+      eq(transactions.type, category.type),
+      gte(transactions.date, monthStart)
+    ];
+    
+    // Add end date filter if provided
+    if (endDate) {
+      conditions.push(lte(transactions.date, endDate));
+    }
+    
     const results = await db
       .select()
       .from(transactions)
-      .where(
-        and(
-          eq(transactions.userId, userId),
-          eq(transactions.categoryId, categoryId),
-          eq(transactions.type, category.type),
-          gte(transactions.date, monthStart)
-        )
-      );
+      .where(and(...conditions));
     
     return results.reduce((sum, t) => sum + Number(t.amount), 0);
   }
