@@ -19,7 +19,8 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
 - AI integration with defensive fallback handling
 
 ## Recent Changes
-- **Multi-Expense Parsing (Latest - Oct 10)**: Added support for parsing multiple transactions from a single natural language input. Users can now enter "Cab 500, Food 300, Shopping 600" and get all three transactions parsed and previewed at once. Includes atomic batch creation with strict validation.
+- **Historical Reports (Latest - Oct 10)**: Added Reports page with month/year selector for viewing historical financial data. Includes UTC-safe date filtering, period stats (income/expenses/savings), category breakdown, and transaction history. Fully tested with E2E verification.
+- **Multi-Expense Parsing (Oct 10)**: Added support for parsing multiple transactions from a single natural language input. Users can now enter "Cab 500, Food 300, Shopping 600" and get all three transactions parsed and previewed at once. Includes atomic batch creation with strict validation.
 - **Supabase Integration (Oct 10)**: Successfully migrated from Neon to Supabase PostgreSQL database. Updated database connection to use node-postgres driver with Transaction Pooler for optimal performance.
 - **Custom Authentication (Oct 10)**: Replaced Replit Auth with email/password authentication. Users can now input their own OpenAI API keys for AI-powered expense parsing.
 - **Security Hardening**: Implemented scrypt-based key derivation for encryption, proper error handling in logout, and validation for encryption secrets
@@ -77,7 +78,15 @@ MyndMoney is a comprehensive personal finance tracking application with AI-power
    - Deadline management
    - Achievement indicators
 
-7. **Settings**
+7. **Historical Reports**
+   - Month/year period selector for historical data
+   - UTC-safe date filtering to avoid timezone issues
+   - Income, expenses, and savings stats for selected period
+   - Category breakdown pie chart
+   - Transaction list for the period
+   - "No data" message for empty periods
+
+8. **Settings**
    - OpenAI API key input (encrypted storage with AES-256-CBC)
    - AI model selection (GPT-5, GPT-4.1, GPT-4o variants)
    - Theme toggle (light/dark mode)
