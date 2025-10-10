@@ -238,6 +238,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accounts = [defaultAccount];
       }
 
+      // Use parsed date if valid and recent, otherwise use today
+      let transactionDate = new Date();
+      if (parsed.date) {
+        const parsedDateObj = new Date(parsed.date);
+        const now = new Date();
+        const daysDiff = (now.getTime() - parsedDateObj.getTime()) / (1000 * 60 * 60 * 24);
+        // Only use parsed date if it's within last 90 days and not in the future
+        if (daysDiff >= 0 && daysDiff <= 90) {
+          transactionDate = parsedDateObj;
+        }
+      }
+
       const transaction = {
         amount: parsed.amount,
         type: parsed.type,
@@ -245,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         categoryId: category?.id || categories.find(c => c.name === 'Other')?.id || '',
         accountId: accounts[0].id,
         description: parsed.description,
-        date: parsed.date ? new Date(parsed.date) : new Date(),
+        date: transactionDate,
         notes: parsed.notes,
       };
 
