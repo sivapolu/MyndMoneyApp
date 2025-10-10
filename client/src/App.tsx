@@ -15,20 +15,25 @@ import Budgets from "@/pages/budgets";
 import Accounts from "@/pages/accounts";
 import Goals from "@/pages/goals";
 import Settings from "@/pages/settings";
-import Landing from "@/pages/landing";
+import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Show landing page for unauthenticated or loading users
-  if (isLoading || !isAuthenticated) {
+  // Show auth page for unauthenticated users
+  if (!isLoading && !isAuthenticated) {
     return (
       <Switch>
-        <Route path="/" component={Landing} />
-        <Route component={Landing} />
+        <Route path="/" component={Auth} />
+        <Route component={Auth} />
       </Switch>
     );
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
   // Show main app for authenticated users
@@ -88,9 +93,14 @@ export default function App() {
 function InnerApp() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Show landing page while loading or not authenticated
-  if (isLoading || !isAuthenticated) {
-    return <Landing />;
+  // Show loading state
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  // Show auth page while not authenticated
+  if (!isAuthenticated) {
+    return <Auth />;
   }
 
   // Show authenticated app
