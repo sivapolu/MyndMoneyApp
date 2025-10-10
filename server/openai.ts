@@ -1,11 +1,13 @@
 import OpenAI from "openai";
+import { decryptApiKey } from "./auth";
 
-// This is using Replit's AI Integrations service, which provides OpenAI-compatible API access without requiring your own OpenAI API key.
-// Using GPT-4.1-mini as requested by the user for cost-efficient AI parsing
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-});
+// Default Replit AI Integrations client (fallback)
+const replitOpenAI = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL && process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  ? new OpenAI({
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+    })
+  : null;
 
 export interface ParsedExpense {
   amount: number;
@@ -16,10 +18,30 @@ export interface ParsedExpense {
   notes?: string;
 }
 
-export async function parseExpenseFromText(text: string, aiModel: string = "gpt-4.1-mini"): Promise<ParsedExpense> {
-  // Check if AI integration is configured
-  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    // Fallback to basic parsing without AI
+export async function parseExpenseFromText(
+  text: string, 
+  aiModel: string = "gpt-4.1-mini",
+  userOpenAIKey?: string | null
+): Promise<ParsedExpense> {
+  // Try to use user's personal API key first
+  let openaiClient: OpenAI | null = null;
+  
+  if (userOpenAIKey) {
+    try {
+      const decryptedKey = decryptApiKey(userOpenAIKey);
+      openaiClient = new OpenAI({ apiKey: decryptedKey });
+    } catch (error) {
+      console.error('Failed to decrypt user API key, falling back:', error);
+    }
+  }
+  
+  // Fall back to Replit AI Integrations if available
+  if (!openaiClient && replitOpenAI) {
+    openaiClient = replitOpenAI;
+  }
+  
+  // If no AI client available, use basic parsing
+  if (!openaiClient) {
     return basicParse(text);
   }
 
@@ -31,7 +53,7 @@ Text: "${text}"
 
 Return only valid JSON.`;
 
-    const completion = await openai.chat.completions.create({
+    const completion = await openaiClient.chat.completions.create({
       model: aiModel,
       messages: [
         { role: "system", content: "You are a financial assistant that parses expense and income entries from natural language." },
