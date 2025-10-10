@@ -14,6 +14,7 @@ import Chat from "@/pages/chat";
 import Budgets from "@/pages/budgets";
 import Accounts from "@/pages/accounts";
 import Goals from "@/pages/goals";
+import Categories from "@/pages/categories";
 import Settings from "@/pages/settings";
 import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/budgets" component={Budgets} />
       <Route path="/accounts" component={Accounts} />
       <Route path="/goals" component={Goals} />
+      <Route path="/categories" component={Categories} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
