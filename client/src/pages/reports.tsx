@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, Calendar as CalendarIcon } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import type { DashboardStats, Category } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -79,8 +80,10 @@ export default function Reports() {
   const topCategories = stats?.topCategories || [];
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      {/* Period Selector */}
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        {/* Period Selector */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
@@ -269,6 +272,7 @@ export default function Reports() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }

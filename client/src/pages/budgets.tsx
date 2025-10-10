@@ -14,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import type { Budget, Category } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 const budgetFormSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
@@ -168,12 +169,14 @@ export default function Budgets() {
   };
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display font-semibold">Budgets</h1>
-          <p className="text-muted-foreground mt-1">Track your spending and income targets</p>
-        </div>
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-display font-semibold">Budgets</h1>
+            <p className="text-muted-foreground mt-1">Track your spending and income targets</p>
+          </div>
         <Dialog open={dialogOpen} onOpenChange={(open) => {
           if (open) {
             setBudgetType(activeTab);
@@ -308,6 +311,7 @@ export default function Budgets() {
           {renderBudgetCards(incomeBudgets, 'income')}
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   );
 }

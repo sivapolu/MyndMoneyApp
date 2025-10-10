@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, CheckCircle, AlertCircle, Download } from "lucide-react";
 import type { Category } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
 // @ts-ignore - papaparse has export issues with TypeScript
 import Papa from "papaparse";
 
@@ -520,11 +521,13 @@ Entertainment,2000,weekly,2024-01-01`;
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-display font-bold">Import Data</h1>
-        <p className="text-muted-foreground mt-1">Upload CSV files to import financial data</p>
-      </div>
+    <>
+      <PageHeader />
+      <div className="p-6 space-y-6 max-w-6xl mx-auto pb-24 lg:pb-6">
+        <div>
+          <h1 className="text-3xl font-display font-bold">Import Data</h1>
+          <p className="text-muted-foreground mt-1">Upload CSV files to import financial data</p>
+        </div>
 
       {/* Import Type Tabs */}
       <Tabs value={importType} onValueChange={(v) => setImportType(v as typeof importType)} className="w-full">
@@ -972,6 +975,7 @@ Entertainment,2000,weekly,2024-01-01`;
           <p>• Date formats are automatically detected (YYYY-MM-DD, DD/MM/YYYY, etc.)</p>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

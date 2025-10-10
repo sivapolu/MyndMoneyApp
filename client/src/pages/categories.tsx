@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, ShoppingBag, Car, UtensilsCrossed, FileText, Film, Heart, GraduationCap, MoreHorizontal, Wallet, Briefcase, TrendingUp, Gift, Home, Zap, Smartphone, Plane, Coffee, Music, GamepadIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/page-header";
 
 const iconOptions = [
   { value: "ShoppingBag", label: "Shopping Bag", icon: ShoppingBag },
@@ -97,12 +98,14 @@ export default function Categories() {
   const incomeCategories = categories?.filter(c => c.type === 'income') || [];
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-6 border-b">
-        <div>
-          <h1 className="text-2xl font-semibold">Categories</h1>
-          <p className="text-sm text-muted-foreground">Manage expense and income categories</p>
-        </div>
+    <>
+      <PageHeader />
+      <div className="flex flex-col flex-1 overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b">
+          <div>
+            <h1 className="text-2xl font-semibold">Categories</h1>
+            <p className="text-sm text-muted-foreground">Manage expense and income categories</p>
+          </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-category">
@@ -293,6 +296,7 @@ export default function Categories() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

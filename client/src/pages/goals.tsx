@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import type { Goal } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 const goalFormSchema = z.object({
   name: z.string().min(1, "Goal name is required"),
@@ -89,12 +90,14 @@ export default function Goals() {
   }
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display font-semibold">Savings Goals</h1>
-          <p className="text-muted-foreground mt-1">Track your financial milestones</p>
-        </div>
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-display font-semibold">Savings Goals</h1>
+            <p className="text-muted-foreground mt-1">Track your financial milestones</p>
+          </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-goal">
@@ -253,6 +256,7 @@ export default function Goals() {
           </div>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }
