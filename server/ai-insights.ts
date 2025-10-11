@@ -50,18 +50,30 @@ export async function generatePredictions(
       trends: calculateTrends(monthlyData),
     };
 
+    // Calculate next month's date explicitly (timezone-stable)
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    // Format month string without timezone conversion
+    const startMonth = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+    
     const prompt = `Analyze this financial data and predict monthly income and expenses for the next 24 months.
+
+IMPORTANT: Today's date is ${today.toISOString().slice(0, 10)}. Start predictions from ${startMonth} (next month) and continue for 24 months into the future.
     
 Historical Data:
 ${JSON.stringify(summary, null, 2)}
 
 Return ONLY a JSON array with exactly 24 objects, each with:
-- month: "YYYY-MM" format starting from next month
+- month: "YYYY-MM" format starting from ${startMonth} (e.g., ["${startMonth}", "${(() => {
+  const secondMonth = new Date(today.getFullYear(), today.getMonth() + 2, 1);
+  return `${secondMonth.getFullYear()}-${String(secondMonth.getMonth() + 1).padStart(2, '0')}`;
+})()}", ...])
 - predictedIncome: number (predicted monthly income)
 - predictedExpenses: number (predicted monthly expenses)  
 - confidence: "high" | "medium" | "low" (prediction confidence)
 
-Base predictions on historical trends, seasonal patterns, and growth/decline patterns.`;
+Base predictions on historical trends, seasonal patterns, and growth/decline patterns. 
+CRITICAL: The first prediction MUST be for ${startMonth}, not any past month.`;
 
     const response = await openai.chat.completions.create({
       model: aiModel,
@@ -78,7 +90,23 @@ Base predictions on historical trends, seasonal patterns, and growth/decline pat
     }
 
     const predictions = JSON.parse(content);
-    return Array.isArray(predictions) ? predictions.slice(0, 24) : generateFallbackPredictions(transactions);
+    
+    // Validate that predictions are arrays and start from future dates
+    if (!Array.isArray(predictions) || predictions.length === 0) {
+      return generateFallbackPredictions(transactions);
+    }
+    
+    // Check if first prediction starts from next month (timezone-safe string comparison)
+    const firstPredictionMonth = predictions[0]?.month;
+    if (firstPredictionMonth) {
+      // Compare month strings directly to avoid timezone issues
+      if (firstPredictionMonth < startMonth) {
+        console.warn(`AI generated predictions from ${firstPredictionMonth} instead of ${startMonth}, using fallback`);
+        return generateFallbackPredictions(transactions);
+      }
+    }
+    
+    return predictions.slice(0, 24);
   } catch (error) {
     console.error('AI prediction error:', error);
     return generateFallbackPredictions(transactions);
@@ -262,12 +290,18 @@ function calculateTrends(monthlyData: Array<{ month: string; income: number; exp
 // Fallback functions (when AI is unavailable)
 function generateFallbackPredictions(transactions: Transaction[]): PredictionData[] {
   const monthlyData = aggregateMonthlyData(transactions);
+  
+  // Helper to format month string without timezone conversion
+  const formatMonth = (date: Date): string => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  };
+  
   if (monthlyData.length === 0) {
     return Array.from({ length: 24 }, (_, i) => {
       const date = new Date();
       date.setMonth(date.getMonth() + i + 1);
       return {
-        month: date.toISOString().slice(0, 7),
+        month: formatMonth(date),
         predictedIncome: 0,
         predictedExpenses: 0,
         confidence: 'low' as const,
@@ -283,7 +317,7 @@ function generateFallbackPredictions(transactions: Transaction[]): PredictionDat
     const date = new Date();
     date.setMonth(date.getMonth() + i + 1);
     return {
-      month: date.toISOString().slice(0, 7),
+      month: formatMonth(date),
       predictedIncome: Math.round(avgIncome),
       predictedExpenses: Math.round(avgExpenses),
       confidence: monthlyData.length >= 6 ? 'medium' : 'low' as const,
