@@ -107,6 +107,7 @@ export const insertTransactionSchema = createInsertSchema(transactions).omit({ i
 
 export const insertBudgetSchema = createInsertSchema(budgets).omit({ id: true, userId: true }).extend({
   amount: z.coerce.number(),
+  period: z.string().default('monthly'),
   startDate: z.coerce.date().optional(),
 });
 
