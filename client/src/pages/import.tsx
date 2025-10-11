@@ -430,7 +430,7 @@ export default function ImportPage() {
     }
 
     const unknownCategories: string[] = [];
-    const budgets: MappedBudget[] = csvData.map((row, idx) => {
+    const budgets = csvData.map((row, idx) => {
       const categoryName = row[budgetMapping.category]?.trim();
       
       if (!categoryName) {
@@ -466,8 +466,8 @@ export default function ImportPage() {
         amount,
         period,
         startDate,
-      };
-    }).filter((b): b is MappedBudget => b !== null && !!b.categoryId && b.amount > 0);
+      } as MappedBudget;
+    }).filter(b => b !== null && !!b.categoryId && b.amount > 0) as MappedBudget[];
 
     if (unknownCategories.length > 0) {
       toast({
@@ -790,12 +790,12 @@ Entertainment,2000,weekly,2024-01-01`;
               </div>
               <div>
                 <Label>Type Column (Optional)</Label>
-                <Select value={columnMapping.type} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, type: v }))}>
+                <Select value={columnMapping.type || "__auto__"} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, type: v === "__auto__" ? '' : v }))}>
                   <SelectTrigger data-testid="select-type-column">
                     <SelectValue placeholder="Auto-detect from amount" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Auto-detect</SelectItem>
+                    <SelectItem value="__auto__">Auto-detect</SelectItem>
                     {headers.map(h => (
                       <SelectItem key={h} value={h}>{h}</SelectItem>
                     ))}
@@ -804,12 +804,12 @@ Entertainment,2000,weekly,2024-01-01`;
               </div>
               <div>
                 <Label>Category Column (Optional)</Label>
-                <Select value={columnMapping.category} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, category: v }))}>
+                <Select value={columnMapping.category || "__auto__"} onValueChange={(v) => setColumnMapping(prev => ({ ...prev, category: v === "__auto__" ? '' : v }))}>
                   <SelectTrigger data-testid="select-category-column">
                     <SelectValue placeholder="Auto-categorize from description" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Auto-categorize</SelectItem>
+                    <SelectItem value="__auto__">Auto-categorize</SelectItem>
                     {headers.map(h => (
                       <SelectItem key={h} value={h}>{h}</SelectItem>
                     ))}
