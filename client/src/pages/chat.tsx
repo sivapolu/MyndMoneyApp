@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Loader2, Check, X, Calendar, Tag, Wallet as WalletIcon, TrendingDown, TrendingUp, Camera, Menu, BarChart3, Sparkles, Plus, User, Edit2 } from "lucide-react";
+import { Send, Loader2, Check, X, Calendar, Tag, Wallet as WalletIcon, TrendingDown, TrendingUp, Camera, Menu, BarChart3, Sparkles, Plus, User, Edit2, LineChart as LineChartIcon, PieChart as PieChartIcon } from "lucide-react";
+import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { apiRequest } from "@/lib/queryClient";
@@ -17,6 +18,7 @@ export default function Chat() {
   const [, setLocation] = useLocation();
   const { open } = useSidebar();
   const { user } = useAuth();
+  const [chatMode, setChatMode] = useState<'transaction' | 'analytics'>('transaction');
   const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -39,7 +41,7 @@ export default function Chat() {
         {
           id: '1',
           role: 'system',
-          content: `Hi ${userName}! I'm your AI finance assistant. Tell me about your expenses or income in natural language.`,
+          content: `Hi ${userName}! I'm your AI finance assistant. Add transactions or ask me questions about your finances.`,
           timestamp: new Date(),
         },
       ]);
@@ -53,6 +55,32 @@ export default function Chat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const analyticsMutation = useMutation({
+    mutationFn: async (query: string) => {
+      const response = await apiRequest('POST', '/api/chat/analytics', { query });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      const assistantMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: data.summary || 'Here are your insights:',
+        timestamp: new Date(),
+        analyticsData: data,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    },
+    onError: (error: any) => {
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'system',
+        content: error.message || 'Failed to process query. Please try again.',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    },
+  });
 
   const parseMutation = useMutation({
     mutationFn: async (text: string) => {
@@ -197,7 +225,14 @@ export default function Chat() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    parseMutation.mutate(input);
+    
+    // Use chatMode to determine whether to parse transaction or run analytics
+    if (chatMode === 'analytics') {
+      analyticsMutation.mutate(input);
+    } else {
+      parseMutation.mutate(input);
+    }
+    
     setInput('');
   };
 
@@ -291,7 +326,13 @@ export default function Chat() {
     });
   };
 
-  const suggestions = transactionType === 'expense'
+  const suggestions = chatMode === 'analytics'
+    ? [
+        'Show travel expenses trend',
+        'What was last month spending?',
+        'Category breakdown',
+      ]
+    : transactionType === 'expense'
     ? [
         '₹500 groceries',
         'Cab 500, Food 300',
@@ -339,41 +380,79 @@ export default function Chat() {
         </div>
       </header>
 
-      {/* Transaction Type Toggle - Navy & Gold Theme */}
-      <div className="relative z-10 p-4">
+      {/* Chat Mode Toggle - Navy & Gold Theme */}
+      <div className="relative z-10 px-4 pt-4">
         <div className="max-w-4xl mx-auto">
           <div className="inline-flex p-1 bg-white/60 dark:bg-[#1C2F4A]/60 backdrop-blur-md rounded-full border border-[#C8A046]/30 shadow-lg">
             <Button
-              variant={transactionType === 'expense' ? 'default' : 'ghost'}
+              variant={chatMode === 'transaction' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setTransactionType('expense')}
+              onClick={() => setChatMode('transaction')}
               className={`rounded-full px-6 transition-all duration-300 ${
-                transactionType === 'expense' 
+                chatMode === 'transaction' 
+                  ? 'bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] text-white shadow-lg' 
+                  : 'text-gray-600 dark:text-gray-300'
+              }`}
+              data-testid="button-transaction-mode"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Transaction
+            </Button>
+            <Button
+              variant={chatMode === 'analytics' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setChatMode('analytics')}
+              className={`rounded-full px-6 transition-all duration-300 ${
+                chatMode === 'analytics' 
                   ? 'bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg' 
                   : 'text-gray-600 dark:text-gray-300'
               }`}
-              data-testid="button-expense-mode"
+              data-testid="button-analytics-mode"
             >
-              <TrendingDown className="h-4 w-4 mr-2" />
-              Expense
-            </Button>
-            <Button
-              variant={transactionType === 'income' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setTransactionType('income')}
-              className={`rounded-full px-6 transition-all duration-300 ${
-                transactionType === 'income' 
-                  ? 'bg-gradient-to-r from-[#1C2F4A] to-[#2A4A6F] text-white shadow-lg' 
-                  : 'text-gray-600 dark:text-gray-300'
-              }`}
-              data-testid="button-income-mode"
-            >
-              <TrendingUp className="h-4 w-4 mr-2" />
-              Income
+              <Sparkles className="h-4 w-4 mr-2" />
+              Ask AI
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Transaction Type Toggle - Only show in transaction mode */}
+      {chatMode === 'transaction' && (
+        <div className="relative z-10 px-4 pb-2">
+          <div className="max-w-4xl mx-auto">
+            <div className="inline-flex p-1 bg-white/60 dark:bg-[#1C2F4A]/60 backdrop-blur-md rounded-full border border-[#C8A046]/30 shadow-lg">
+              <Button
+                variant={transactionType === 'expense' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTransactionType('expense')}
+                className={`rounded-full px-6 transition-all duration-300 ${
+                  transactionType === 'expense' 
+                    ? 'bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg' 
+                    : 'text-gray-600 dark:text-gray-300'
+                }`}
+                data-testid="button-expense-mode"
+              >
+                <TrendingDown className="h-4 w-4 mr-2" />
+                Expense
+              </Button>
+              <Button
+                variant={transactionType === 'income' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTransactionType('income')}
+                className={`rounded-full px-6 transition-all duration-300 ${
+                  transactionType === 'income' 
+                    ? 'bg-gradient-to-r from-[#1C2F4A] to-[#2A4A6F] text-white shadow-lg' 
+                    : 'text-gray-600 dark:text-gray-300'
+                }`}
+                data-testid="button-income-mode"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Income
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Chat Messages */}
       <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-32 lg:pb-24 space-y-4">
@@ -394,6 +473,70 @@ export default function Chat() {
                 data-testid={`message-${message.id}`}
               >
                 <p className="text-sm whitespace-pre-line">{message.content}</p>
+                
+                {/* Analytics Chart Visualization */}
+                {message.analyticsData && message.analyticsData.type === 'chart' && (
+                  <div className="mt-4 p-4 bg-white/50 dark:bg-slate-900/50 rounded-xl">
+                    <ResponsiveContainer width="100%" height={250}>
+                      {message.analyticsData.chartType === 'area' && (
+                        <AreaChart data={message.analyticsData.data}>
+                          <defs>
+                            <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#C8A046" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#C8A046" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#ddd" opacity={0.3} />
+                          <XAxis dataKey="date" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                          <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                              border: '1px solid #C8A046',
+                              borderRadius: '8px' 
+                            }} 
+                          />
+                          <Area type="monotone" dataKey="amount" stroke="#C8A046" fillOpacity={1} fill="url(#colorAmount)" />
+                        </AreaChart>
+                      )}
+                      {message.analyticsData.chartType === 'pie' && (
+                        <PieChart>
+                          <Pie
+                            data={message.analyticsData.data}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {message.analyticsData.data.map((_: any, index: number) => {
+                              const colors = ['#C8A046', '#1C2F4A', '#E5C06F', '#2A3F5F', '#D4AC58', '#3A4F6F'];
+                              return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                            })}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      )}
+                      {message.analyticsData.chartType === 'bar' && (
+                        <BarChart data={message.analyticsData.data}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#ddd" opacity={0.3} />
+                          <XAxis dataKey="date" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                          <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                              border: '1px solid #C8A046',
+                              borderRadius: '8px' 
+                            }} 
+                          />
+                          <Bar dataKey="amount" fill="#C8A046" />
+                        </BarChart>
+                      )}
+                    </ResponsiveContainer>
+                  </div>
+                )}
                 
                 {message.transactionPreviews && message.transactionPreviews.length > 0 && (
                   <div className="mt-3 space-y-2">
@@ -488,7 +631,7 @@ export default function Chat() {
             </div>
           ))}
           
-          {parseMutation.isPending && (
+          {(parseMutation.isPending || analyticsMutation.isPending) && (
             <div className="flex justify-start">
               <div className="bg-white/80 dark:bg-[#1C2F4A]/80 backdrop-blur-md border border-[#C8A046]/20 rounded-3xl px-5 py-3 shadow-xl">
                 <Loader2 className="h-4 w-4 animate-spin text-[#C8A046]" />
@@ -553,15 +696,21 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={transactionType === 'expense' ? 'e.g., ₹500 groceries...' : 'e.g., ₹50k salary...'}
+              placeholder={
+                chatMode === 'analytics' 
+                  ? 'Ask about your finances...' 
+                  : transactionType === 'expense' 
+                    ? 'e.g., ₹500 groceries...' 
+                    : 'e.g., ₹50k salary...'
+              }
               className="border-0 focus-visible:ring-0 bg-transparent text-gray-700 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500"
-              disabled={parseMutation.isPending}
+              disabled={parseMutation.isPending || analyticsMutation.isPending}
               data-testid="input-chat"
             />
             <Button
               size="icon"
               onClick={handleSend}
-              disabled={!input.trim() || parseMutation.isPending}
+              disabled={!input.trim() || parseMutation.isPending || analyticsMutation.isPending}
               className="rounded-full shrink-0 bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] text-white shadow-lg"
               data-testid="button-send"
             >
