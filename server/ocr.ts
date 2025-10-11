@@ -31,7 +31,60 @@ export async function extractDataWithVision(
     const base64Image = imageBuffer.toString('base64');
     const mimeType = detectImageType(imageBuffer);
 
-    const prompt = `You are a receipt/bill OCR expert. Analyze this image and extract the following information in JSON format:
+    // First, detect if this is a bank statement by analyzing the image
+    const detectionResponse = await openai.chat.completions.create({
+      model: aiModel.includes('vision') || aiModel.includes('4o') ? aiModel : 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { 
+              type: 'text', 
+              text: `Analyze this image and determine if it's a bank statement with multiple transactions or a single receipt/bill. Return JSON: {"type": "bank_statement" or "receipt", "hasMultipleTransactions": true/false}` 
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${base64Image}`,
+              },
+            },
+          ],
+        },
+      ],
+      response_format: { type: 'json_object' },
+      max_completion_tokens: 100,
+    });
+
+    const detectionContent = detectionResponse.choices[0]?.message?.content;
+    const detection = detectionContent ? JSON.parse(detectionContent) : { type: 'receipt' };
+    const isBankStatement = detection.type === 'bank_statement' || detection.hasMultipleTransactions;
+
+    // Choose prompt based on document type
+    const prompt = isBankStatement
+      ? `You are a bank statement analyzer. Extract ALL transactions from this bank statement image and return them in JSON format:
+
+{
+  "merchant": "Bank name",
+  "currency": "INR",
+  "transactions": [
+    {
+      "date": "YYYY-MM-DD",
+      "description": "transaction description", 
+      "amount": <amount as number>,
+      "type": "debit" or "credit"
+    }
+  ]
+}
+
+Rules:
+- Extract EVERY single transaction visible in the image
+- Look for columns like Date, Transaction Details, Withdrawal, Deposit, etc.
+- Identify deposits/credits as type "credit" (income)
+- Identify withdrawals/debits as type "debit" (expense)
+- Detect currency from symbols ($, €, ₹, £) or headers
+- Convert dates to YYYY-MM-DD format
+- Return ONLY valid JSON with ALL transactions`
+      : `You are a receipt/bill OCR expert. Analyze this image and extract the following information in JSON format:
 
 {
   "merchant": "Store/Restaurant name",
@@ -71,16 +124,35 @@ Rules:
         },
       ],
       response_format: { type: 'json_object' },
-      max_completion_tokens: 1000,
+      max_completion_tokens: isBankStatement ? 8000 : 1000,
     });
 
     const content = response.choices[0]?.message?.content;
+    const finishReason = response.choices[0]?.finish_reason;
+    
     if (!content) {
       throw new Error('No response from OpenAI Vision');
     }
 
+    // Check if response was truncated
+    if (finishReason === 'length') {
+      console.warn('OpenAI Vision response was truncated due to token limit');
+      throw new Error('Bank statement image is too large. The AI response was truncated. Please try a smaller image or fewer transactions.');
+    }
+
     const parsed = JSON.parse(content);
     
+    // Handle bank statements with multiple transactions
+    if (isBankStatement && parsed.transactions) {
+      return {
+        merchant: parsed.merchant || 'Bank Statement',
+        currency: parsed.currency || 'INR',
+        items: parsed.transactions || [],
+        rawText: `Bank Statement with ${parsed.transactions?.length || 0} transactions`,
+      };
+    }
+    
+    // Handle regular receipts
     return {
       merchant: parsed.merchant || undefined,
       date: parsed.date || undefined,
