@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileText, CheckCircle, AlertCircle, Download } from "lucide-react";
+import { Upload, FileText, CheckCircle, AlertCircle, Download, Sparkles, Loader2, ArrowRight, ChevronRight } from "lucide-react";
 import type { Category } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
@@ -30,8 +30,10 @@ interface MappedBudget {
   categoryId: string;
   amount: number;
   period: 'weekly' | 'monthly' | 'yearly';
-  startDate?: string;
+  startDate?: string | undefined;
 }
+
+type ImportStep = 'upload' | 'mapping' | 'preview' | 'importing' | 'complete';
 
 export default function ImportPage() {
   const { toast } = useToast();
@@ -39,6 +41,7 @@ export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
+  const [currentStep, setCurrentStep] = useState<ImportStep>('upload');
   
   // Transaction-specific state
   const [columnMapping, setColumnMapping] = useState({
@@ -70,6 +73,7 @@ export default function ImportPage() {
 
   const importMutation = useMutation({
     mutationFn: async (transactions: MappedTransaction[]) => {
+      setCurrentStep('importing');
       const response = await fetch("/api/transactions/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,15 +87,17 @@ export default function ImportPage() {
       return await response.json();
     },
     onSuccess: () => {
+      setCurrentStep('complete');
       toast({
-        title: "Success",
+        title: "Import Complete",
         description: `${previewTransactions.length} transactions imported successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      resetImport();
+      setTimeout(() => resetImport(), 2000);
     },
     onError: (error: Error) => {
+      setCurrentStep('preview');
       toast({
         variant: "destructive",
         title: "Import failed",
@@ -102,6 +108,7 @@ export default function ImportPage() {
 
   const importBudgetMutation = useMutation({
     mutationFn: async (budgets: MappedBudget[]) => {
+      setCurrentStep('importing');
       const response = await fetch("/api/budgets/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,14 +122,16 @@ export default function ImportPage() {
       return await response.json();
     },
     onSuccess: () => {
+      setCurrentStep('complete');
       toast({
-        title: "Success",
+        title: "Import Complete",
         description: `${previewBudgets.length} budgets imported successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
-      resetImport();
+      setTimeout(() => resetImport(), 2000);
     },
     onError: (error: Error) => {
+      setCurrentStep('preview');
       toast({
         variant: "destructive",
         title: "Import failed",
@@ -247,36 +256,47 @@ export default function ImportPage() {
     }
 
     setFile(uploadedFile);
-    const text = await uploadedFile.text();
-    const parsed = parseCSV(text);
-    setCsvData(parsed);
+    setCurrentStep('upload');
     
-    if (parsed.length > 0) {
-      const fileHeaders = Object.keys(parsed[0]);
-      setHeaders(fileHeaders);
+    // Simulate processing animation
+    setTimeout(async () => {
+      const text = await uploadedFile.text();
+      const parsed = parseCSV(text);
+      setCsvData(parsed);
       
-      // Auto-detect common column names
-      const lowerHeaders = fileHeaders.map(h => h.toLowerCase());
-      const autoMapping: any = {};
-      
-      if (lowerHeaders.some(h => h.includes('date'))) {
-        autoMapping.date = fileHeaders[lowerHeaders.findIndex(h => h.includes('date'))];
+      if (parsed.length > 0) {
+        const fileHeaders = Object.keys(parsed[0]);
+        setHeaders(fileHeaders);
+        
+        // Auto-detect common column names
+        const lowerHeaders = fileHeaders.map(h => h.toLowerCase());
+        const autoMapping: any = {};
+        
+        if (lowerHeaders.some(h => h.includes('date'))) {
+          autoMapping.date = fileHeaders[lowerHeaders.findIndex(h => h.includes('date'))];
+        }
+        if (lowerHeaders.some(h => h.includes('description') || h.includes('narration') || h.includes('details'))) {
+          autoMapping.description = fileHeaders[lowerHeaders.findIndex(h => h.includes('description') || h.includes('narration') || h.includes('details'))];
+        }
+        if (lowerHeaders.some(h => h.includes('amount') || h.includes('debit') || h.includes('credit'))) {
+          autoMapping.amount = fileHeaders[lowerHeaders.findIndex(h => h.includes('amount') || h.includes('debit') || h.includes('credit'))];
+        }
+        if (lowerHeaders.some(h => h.includes('type') || h.includes('transaction type'))) {
+          autoMapping.type = fileHeaders[lowerHeaders.findIndex(h => h.includes('type') || h.includes('transaction type'))];
+        }
+        if (lowerHeaders.some(h => h.includes('category') || h.includes('categories'))) {
+          autoMapping.category = fileHeaders[lowerHeaders.findIndex(h => h.includes('category') || h.includes('categories'))];
+        }
+        
+        setColumnMapping(prev => ({ ...prev, ...autoMapping }));
+        setCurrentStep('mapping');
+        
+        toast({
+          title: "File Processed",
+          description: `${parsed.length} rows detected with auto-mapped columns`,
+        });
       }
-      if (lowerHeaders.some(h => h.includes('description') || h.includes('narration') || h.includes('details'))) {
-        autoMapping.description = fileHeaders[lowerHeaders.findIndex(h => h.includes('description') || h.includes('narration') || h.includes('details'))];
-      }
-      if (lowerHeaders.some(h => h.includes('amount') || h.includes('debit') || h.includes('credit'))) {
-        autoMapping.amount = fileHeaders[lowerHeaders.findIndex(h => h.includes('amount') || h.includes('debit') || h.includes('credit'))];
-      }
-      if (lowerHeaders.some(h => h.includes('type') || h.includes('transaction type'))) {
-        autoMapping.type = fileHeaders[lowerHeaders.findIndex(h => h.includes('type') || h.includes('transaction type'))];
-      }
-      if (lowerHeaders.some(h => h.includes('category') || h.includes('categories'))) {
-        autoMapping.category = fileHeaders[lowerHeaders.findIndex(h => h.includes('category') || h.includes('categories'))];
-      }
-      
-      setColumnMapping(prev => ({ ...prev, ...autoMapping }));
-    }
+    }, 800);
   };
 
   const generatePreview = () => {
@@ -341,10 +361,11 @@ export default function ImportPage() {
     }).filter(t => t.amount > 0); // Filter out zero amounts
     
     setParseErrors(errors);
-
     setPreviewTransactions(transactions);
+    setCurrentStep('preview');
+    
     toast({
-      title: "Preview generated",
+      title: "Preview Ready",
       description: `${transactions.length} transactions ready to import`,
     });
   };
@@ -457,8 +478,10 @@ export default function ImportPage() {
     }
 
     setPreviewBudgets(budgets);
+    setCurrentStep('preview');
+    
     toast({
-      title: "Preview generated",
+      title: "Preview Ready",
       description: `${budgets.length} budgets ready to import`,
     });
   };
@@ -486,6 +509,7 @@ export default function ImportPage() {
     setPreviewBudgets([]);
     setParseErrors([]);
     setDateFormat('auto');
+    setCurrentStep('upload');
   };
 
   const downloadSample = () => {
@@ -520,142 +544,208 @@ Entertainment,2000,weekly,2024-01-01`;
     window.URL.revokeObjectURL(url);
   };
 
+  // Step indicator component
+  const StepIndicator = ({ step, label, isActive, isComplete }: { step: number; label: string; isActive: boolean; isComplete: boolean }) => (
+    <div className="flex items-center gap-2">
+      <div className={`
+        w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all
+        ${isComplete ? 'bg-gradient-to-r from-[#C8A046] to-[#1C2F4A] text-white' : 
+          isActive ? 'bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] text-white animate-pulse' : 
+          'bg-muted text-muted-foreground'}
+      `}>
+        {isComplete ? <CheckCircle className="w-4 h-4" /> : step}
+      </div>
+      <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
+    </div>
+  );
+
+  const getStepNumber = (step: ImportStep): number => {
+    const steps = { upload: 1, mapping: 2, preview: 3, importing: 4, complete: 4 };
+    return steps[step];
+  };
+
+  const isStepComplete = (stepNum: number): boolean => {
+    return getStepNumber(currentStep) > stepNum;
+  };
+
   return (
     <>
       <PageHeader />
       <div className="p-6 space-y-6 max-w-6xl mx-auto pb-24 lg:pb-6">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Import Data</h1>
-          <p className="text-muted-foreground mt-1">Upload CSV files to import financial data</p>
+        {/* Modern Header with Gradient */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1C2F4A] via-[#2A3F5F] to-[#C8A046] p-8 text-white">
+          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-2">
+              <Sparkles className="w-8 h-8" />
+              <h1 className="text-3xl font-display font-bold">Import Your Data</h1>
+            </div>
+            <p className="text-white/80 max-w-2xl">Transform your spreadsheets into financial insights with our smart import wizard</p>
+          </div>
         </div>
+
+        {/* Step Progress */}
+        <Card className="border-[#1C2F4A]/20 bg-gradient-to-r from-[#1C2F4A]/5 to-[#C8A046]/5">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between gap-4">
+              <StepIndicator step={1} label="Upload" isActive={currentStep === 'upload'} isComplete={isStepComplete(1)} />
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              <StepIndicator step={2} label="Map Columns" isActive={currentStep === 'mapping'} isComplete={isStepComplete(2)} />
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              <StepIndicator step={3} label="Preview" isActive={currentStep === 'preview'} isComplete={isStepComplete(3)} />
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              <StepIndicator step={4} label="Import" isActive={currentStep === 'importing' || currentStep === 'complete'} isComplete={currentStep === 'complete'} />
+            </div>
+          </CardContent>
+        </Card>
 
       {/* Import Type Tabs */}
       <Tabs value={importType} onValueChange={(v) => setImportType(v as typeof importType)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="transactions" data-testid="tab-transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="budgets" data-testid="tab-budgets">Budgets</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 bg-gradient-to-r from-[#1C2F4A]/10 to-[#C8A046]/10">
+          <TabsTrigger value="transactions" data-testid="tab-transactions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#1C2F4A] data-[state=active]:to-[#C8A046] data-[state=active]:text-white">
+            Transactions
+          </TabsTrigger>
+          <TabsTrigger value="budgets" data-testid="tab-budgets" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#C8A046] data-[state=active]:to-[#1C2F4A] data-[state=active]:text-white">
+            Budgets
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="transactions" className="space-y-6 mt-6">
-          {/* Instructions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>How to Import Transactions</CardTitle>
-              <CardDescription>Follow these steps to import your financial data</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">1</div>
-                <div>
-                  <p className="font-medium">Prepare your CSV file</p>
-                  <p className="text-sm text-muted-foreground">Export transactions from your bank or create a CSV with columns: Date, Description, Amount</p>
+          {currentStep === 'upload' && !file && (
+            <Card className="border-2 border-dashed border-[#1C2F4A]/30 hover:border-[#C8A046] transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-[#C8A046]" />
+                  Upload Transaction File
+                </CardTitle>
+                <CardDescription>Choose a CSV file from your bank or expense tracker</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-border rounded-xl p-12 text-center hover-elevate transition-all bg-gradient-to-br from-[#1C2F4A]/5 to-[#C8A046]/5">
+                    <Input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="csv-upload"
+                      data-testid="input-csv-file"
+                    />
+                    <Label htmlFor="csv-upload" className="cursor-pointer block">
+                      <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-[#1C2F4A] to-[#C8A046] flex items-center justify-center">
+                        <Upload className="h-10 w-10 text-white" />
+                      </div>
+                      <p className="text-lg font-medium mb-2">Drop your CSV file here</p>
+                      <p className="text-sm text-muted-foreground">or click to browse</p>
+                    </Label>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={downloadSample} className="w-full" data-testid="button-download-sample">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Sample CSV
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">2</div>
-                <div>
-                  <p className="font-medium">Upload and map columns</p>
-                  <p className="text-sm text-muted-foreground">Map your CSV columns to transaction fields (we'll auto-detect common formats)</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {file && currentStep === 'upload' && (
+            <Card className="border-[#C8A046]/30 bg-gradient-to-br from-[#C8A046]/10 to-[#1C2F4A]/10">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#C8A046] to-[#1C2F4A] flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-lg">Processing your file...</p>
+                    <p className="text-sm text-muted-foreground">Analyzing {file.name}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">3</div>
-                <div>
-                  <p className="font-medium">Preview and import</p>
-                  <p className="text-sm text-muted-foreground">Review the data and import to add transactions to your account</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {file && currentStep === 'complete' && (
+            <Card className="border-chart-3/50 bg-chart-3/10">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-chart-3 flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-lg text-chart-3">Import Complete!</p>
+                    <p className="text-sm text-muted-foreground">Your transactions have been successfully imported</p>
+                  </div>
                 </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={downloadSample} className="mt-2" data-testid="button-download-sample">
-                <Download className="h-4 w-4 mr-2" />
-                Download Sample CSV
-              </Button>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="budgets" className="space-y-6 mt-6">
-          {/* Budget Instructions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>How to Import Budgets</CardTitle>
-              <CardDescription>Follow these steps to import budget data</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">1</div>
-                <div>
-                  <p className="font-medium">Prepare your CSV file</p>
-                  <p className="text-sm text-muted-foreground">Create a CSV with columns: Category, Amount, Period (weekly/monthly/yearly)</p>
+          {currentStep === 'upload' && !file && (
+            <Card className="border-2 border-dashed border-[#C8A046]/30 hover:border-[#1C2F4A] transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-[#1C2F4A]" />
+                  Upload Budget File
+                </CardTitle>
+                <CardDescription>Import your budget planning data</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-border rounded-xl p-12 text-center hover-elevate transition-all bg-gradient-to-br from-[#C8A046]/5 to-[#1C2F4A]/5">
+                    <Input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="csv-upload-budget"
+                      data-testid="input-csv-file"
+                    />
+                    <Label htmlFor="csv-upload-budget" className="cursor-pointer block">
+                      <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-[#C8A046] to-[#1C2F4A] flex items-center justify-center">
+                        <Upload className="h-10 w-10 text-white" />
+                      </div>
+                      <p className="text-lg font-medium mb-2">Drop your CSV file here</p>
+                      <p className="text-sm text-muted-foreground">or click to browse</p>
+                    </Label>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={downloadBudgetSample} className="w-full" data-testid="button-download-budget-sample">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Sample Budget CSV
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">2</div>
-                <div>
-                  <p className="font-medium">Upload and map columns</p>
-                  <p className="text-sm text-muted-foreground">Map your CSV columns to budget fields</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">3</div>
-                <div>
-                  <p className="font-medium">Preview and import</p>
-                  <p className="text-sm text-muted-foreground">Review the data and import to set up your budgets</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" onClick={downloadBudgetSample} className="mt-2" data-testid="button-download-budget-sample">
-                <Download className="h-4 w-4 mr-2" />
-                Download Sample Budget CSV
-              </Button>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
-      {/* File Upload */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload CSV File</CardTitle>
-          <CardDescription>Select a CSV file containing your transaction data</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover-elevate transition-all">
-              <Input
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="csv-upload"
-                data-testid="input-csv-file"
-              />
-              <Label htmlFor="csv-upload" className="cursor-pointer">
-                <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-sm font-medium">
-                  {file ? file.name : 'Click to upload CSV file'}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">CSV files only</p>
-              </Label>
-            </div>
-            {file && (
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <FileText className="h-5 w-5 text-primary" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">{csvData.length} rows found</p>
-                </div>
-                <CheckCircle className="h-5 w-5 text-chart-3" />
+      {/* File Status Card (shown after upload) */}
+      {file && currentStep !== 'upload' && currentStep !== 'complete' && (
+        <Card className="border-[#1C2F4A]/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <FileText className="h-8 w-8 text-[#C8A046]" />
+              <div className="flex-1">
+                <p className="font-medium">{file.name}</p>
+                <p className="text-xs text-muted-foreground">{csvData.length} rows detected</p>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              <CheckCircle className="h-5 w-5 text-chart-3" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Transaction Column Mapping */}
-      {headers.length > 0 && importType === 'transactions' && (
-        <Card>
+      {headers.length > 0 && importType === 'transactions' && currentStep === 'mapping' && (
+        <Card className="border-[#1C2F4A]/20">
           <CardHeader>
-            <CardTitle>Map Columns</CardTitle>
-            <CardDescription>Match your CSV columns to transaction fields</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <ArrowRight className="w-5 h-5 text-[#C8A046]" />
+              Map Your Columns
+            </CardTitle>
+            <CardDescription>We've auto-detected some columns - verify or adjust the mappings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -755,7 +845,12 @@ Entertainment,2000,weekly,2024-01-01`;
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Used when type cannot be auto-detected</p>
             </div>
-            <Button onClick={generatePreview} className="w-full" data-testid="button-generate-preview">
+            <Button 
+              onClick={generatePreview} 
+              className="w-full bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] hover:opacity-90 transition-opacity" 
+              data-testid="button-generate-preview"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
               Generate Preview
             </Button>
           </CardContent>
@@ -763,10 +858,13 @@ Entertainment,2000,weekly,2024-01-01`;
       )}
 
       {/* Budget Column Mapping */}
-      {headers.length > 0 && importType === 'budgets' && (
-        <Card>
+      {headers.length > 0 && importType === 'budgets' && currentStep === 'mapping' && (
+        <Card className="border-[#C8A046]/20">
           <CardHeader>
-            <CardTitle>Map Budget Columns</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <ArrowRight className="w-5 h-5 text-[#1C2F4A]" />
+              Map Budget Columns
+            </CardTitle>
             <CardDescription>Match your CSV columns to budget fields</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -840,7 +938,12 @@ Entertainment,2000,weekly,2024-01-01`;
               </Select>
               <p className="text-xs text-muted-foreground mt-1">Used when period column is empty</p>
             </div>
-            <Button onClick={generateBudgetPreview} className="w-full" data-testid="button-generate-budget-preview">
+            <Button 
+              onClick={generateBudgetPreview} 
+              className="w-full bg-gradient-to-r from-[#C8A046] to-[#1C2F4A] hover:opacity-90 transition-opacity" 
+              data-testid="button-generate-budget-preview"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
               Generate Preview
             </Button>
           </CardContent>
@@ -848,7 +951,7 @@ Entertainment,2000,weekly,2024-01-01`;
       )}
 
       {/* Parse Errors */}
-      {parseErrors.length > 0 && (
+      {parseErrors.length > 0 && currentStep === 'preview' && (
         <Card className="border-destructive/50 bg-destructive/5">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -874,10 +977,13 @@ Entertainment,2000,weekly,2024-01-01`;
       )}
 
       {/* Transaction Preview */}
-      {previewTransactions.length > 0 && importType === 'transactions' && (
-        <Card>
+      {previewTransactions.length > 0 && importType === 'transactions' && currentStep === 'preview' && (
+        <Card className="border-[#C8A046]/30">
           <CardHeader>
-            <CardTitle>Preview ({previewTransactions.length} transactions)</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-chart-3" />
+              Preview ({previewTransactions.length} transactions)
+            </CardTitle>
             <CardDescription>Review before importing {parseErrors.length > 0 && `(${parseErrors.length} warnings)`}</CardDescription>
           </CardHeader>
           <CardContent>
@@ -885,7 +991,7 @@ Entertainment,2000,weekly,2024-01-01`;
               {previewTransactions.slice(0, 10).map((txn, idx) => {
                 const category = categories?.find(c => c.id === txn.categoryId);
                 return (
-                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg" data-testid={`preview-transaction-${idx}`}>
+                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg hover-elevate" data-testid={`preview-transaction-${idx}`}>
                     <div className="flex-1">
                       <p className="font-medium text-sm">{txn.description}</p>
                       <p className="text-xs text-muted-foreground">
@@ -905,10 +1011,25 @@ Entertainment,2000,weekly,2024-01-01`;
               )}
             </div>
             <div className="flex gap-3 mt-4">
-              <Button onClick={handleImport} className="flex-1" disabled={importMutation.isPending} data-testid="button-import-transactions">
-                {importMutation.isPending ? 'Importing...' : `Import ${previewTransactions.length} Transactions`}
+              <Button 
+                onClick={handleImport} 
+                className="flex-1 bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] hover:opacity-90" 
+                disabled={importMutation.isPending} 
+                data-testid="button-import-transactions"
+              >
+                {importMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Import {previewTransactions.length} Transactions
+                  </>
+                )}
               </Button>
-              <Button variant="outline" onClick={resetImport} data-testid="button-reset-import">
+              <Button variant="outline" onClick={resetImport} disabled={importMutation.isPending} data-testid="button-reset-import">
                 Reset
               </Button>
             </div>
@@ -917,10 +1038,13 @@ Entertainment,2000,weekly,2024-01-01`;
       )}
 
       {/* Budget Preview */}
-      {previewBudgets.length > 0 && importType === 'budgets' && (
-        <Card>
+      {previewBudgets.length > 0 && importType === 'budgets' && currentStep === 'preview' && (
+        <Card className="border-[#1C2F4A]/30">
           <CardHeader>
-            <CardTitle>Preview ({previewBudgets.length} budgets)</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-chart-3" />
+              Preview ({previewBudgets.length} budgets)
+            </CardTitle>
             <CardDescription>Review before importing</CardDescription>
           </CardHeader>
           <CardContent>
@@ -928,7 +1052,7 @@ Entertainment,2000,weekly,2024-01-01`;
               {previewBudgets.slice(0, 10).map((budget, idx) => {
                 const category = categories?.find(c => c.id === budget.categoryId);
                 return (
-                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg" data-testid={`preview-budget-${idx}`}>
+                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg hover-elevate" data-testid={`preview-budget-${idx}`}>
                     <div className="flex-1">
                       <p className="font-medium text-sm">{category?.name || 'Unknown Category'}</p>
                       <p className="text-xs text-muted-foreground">
@@ -949,10 +1073,25 @@ Entertainment,2000,weekly,2024-01-01`;
               )}
             </div>
             <div className="flex gap-3 mt-4">
-              <Button onClick={handleBudgetImport} className="flex-1" disabled={importBudgetMutation.isPending} data-testid="button-import-budgets">
-                {importBudgetMutation.isPending ? 'Importing...' : `Import ${previewBudgets.length} Budgets`}
+              <Button 
+                onClick={handleBudgetImport} 
+                className="flex-1 bg-gradient-to-r from-[#C8A046] to-[#1C2F4A] hover:opacity-90" 
+                disabled={importBudgetMutation.isPending} 
+                data-testid="button-import-budgets"
+              >
+                {importBudgetMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Import {previewBudgets.length} Budgets
+                  </>
+                )}
               </Button>
-              <Button variant="outline" onClick={resetImport} data-testid="button-reset-budget-import">
+              <Button variant="outline" onClick={resetImport} disabled={importBudgetMutation.isPending} data-testid="button-reset-budget-import">
                 Reset
               </Button>
             </div>
@@ -961,18 +1100,18 @@ Entertainment,2000,weekly,2024-01-01`;
       )}
 
       {/* Tips */}
-      <Card className="border-primary/20 bg-primary/5">
+      <Card className="border-[#C8A046]/20 bg-gradient-to-br from-[#C8A046]/5 to-[#1C2F4A]/5">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-primary" />
-            <CardTitle className="text-primary">Import Tips</CardTitle>
+            <Sparkles className="h-5 w-5 text-[#C8A046]" />
+            <CardTitle>Pro Tips</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <p>• Transactions are automatically categorized based on description keywords</p>
-          <p>• Negative amounts are automatically detected as expenses</p>
-          <p>• Duplicate transactions won't affect your data - each import creates new entries</p>
-          <p>• Date formats are automatically detected (YYYY-MM-DD, DD/MM/YYYY, etc.)</p>
+          <p>✨ Transactions are automatically categorized using AI-powered keyword matching</p>
+          <p>💰 Negative amounts and accounting formats (1,234.56) are auto-detected</p>
+          <p>📅 Date formats are intelligently detected - choose manual format if needed</p>
+          <p>🔄 Each import creates new entries - no duplicate worries</p>
         </CardContent>
       </Card>
       </div>
