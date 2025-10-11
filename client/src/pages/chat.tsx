@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Send, Loader2, Check, X, Calendar, Tag, Wallet as WalletIcon, TrendingDown, TrendingUp, Camera, Menu, BarChart3, Sparkles, Plus, User } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Send, Loader2, Check, X, Calendar, Tag, Wallet as WalletIcon, TrendingDown, TrendingUp, Camera, Menu, BarChart3, Sparkles, Plus, User, Edit2 } from "lucide-react";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,9 +20,16 @@ export default function Chat() {
   const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [processedMessageIds, setProcessedMessageIds] = useState<Set<string>>(new Set());
+  const [editingCategories, setEditingCategories] = useState<{[key: string]: string}>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Fetch categories for dropdown
+  const { data: categories = [] } = useQuery({
+    queryKey: ['/api/categories'],
+  });
 
   // Set welcome message with user's name once user data is loaded
   useEffect(() => {
@@ -189,11 +197,31 @@ export default function Chat() {
     setInput('');
   };
 
-  const handleConfirm = (transactions: any[]) => {
-    confirmMutation.mutate(transactions);
+  const handleConfirm = (messageId: string, transactions: any[]) => {
+    // Mark message as processed to prevent duplicate clicks
+    setProcessedMessageIds(prev => new Set(prev).add(messageId));
+    
+    // Apply any category changes before confirming
+    const updatedTransactions = transactions.map((transaction, index) => {
+      const key = `${messageId}-${index}`;
+      if (editingCategories[key]) {
+        const selectedCategory = (categories as any[]).find((c: any) => c.id === editingCategories[key]);
+        return {
+          ...transaction,
+          categoryId: selectedCategory.id,
+          category: selectedCategory.name,
+        };
+      }
+      return transaction;
+    });
+    
+    confirmMutation.mutate(updatedTransactions);
   };
 
-  const handleReject = () => {
+  const handleReject = (messageId: string) => {
+    // Mark message as processed to prevent re-clicking
+    setProcessedMessageIds(prev => new Set(prev).add(messageId));
+    
     const rejectMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'system',
@@ -201,6 +229,14 @@ export default function Chat() {
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, rejectMessage]);
+  };
+
+  const handleCategoryChange = (messageId: string, index: number, categoryId: string) => {
+    const key = `${messageId}-${index}`;
+    setEditingCategories(prev => ({
+      ...prev,
+      [key]: categoryId
+    }));
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -359,41 +395,74 @@ export default function Chat() {
                 
                 {message.transactionPreviews && message.transactionPreviews.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    {message.transactionPreviews.map((transaction: any, index: number) => (
-                      <Card key={index} className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm border-white/30 dark:border-slate-700/30 shadow-md">
-                        <CardContent className="p-3 space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <WalletIcon className="h-4 w-4 text-[#C8A046]" />
-                            <span className="font-bold tabular-nums bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] dark:from-[#C8A046] dark:to-[#E5C06F] bg-clip-text text-transparent">
-                              {formatCurrency(transaction.amount)}
-                            </span>
-                            <span className={`ml-auto px-3 py-1 rounded-full text-xs font-medium ${
-                              transaction.type === 'income'
-                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
-                            }`}>
-                              {transaction.type}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                            <Tag className="h-4 w-4" />
-                            <span>{transaction.category}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                            <Calendar className="h-4 w-4" />
-                            <span>{formatDate(transaction.date)}</span>
-                          </div>
-                          <p className="text-sm text-gray-700 dark:text-gray-300">{transaction.description}</p>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {message.transactionPreviews.map((transaction: any, index: number) => {
+                      const key = `${message.id}-${index}`;
+                      const selectedCategoryId = editingCategories[key] || transaction.categoryId;
+                      const currentCategory = (categories as any[]).find((c: any) => c.id === selectedCategoryId);
+                      const transactionCategories = (categories as any[]).filter((c: any) => c.type === transaction.type);
+                      
+                      return (
+                        <Card key={index} className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm border-white/30 dark:border-slate-700/30 shadow-md">
+                          <CardContent className="p-3 space-y-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <WalletIcon className="h-4 w-4 text-[#C8A046]" />
+                              <span className="font-bold tabular-nums bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] dark:from-[#C8A046] dark:to-[#E5C06F] bg-clip-text text-transparent">
+                                {formatCurrency(transaction.amount)}
+                              </span>
+                              <span className={`ml-auto px-3 py-1 rounded-full text-xs font-medium ${
+                                transaction.type === 'income'
+                                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                                  : 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
+                              }`}>
+                                {transaction.type}
+                              </span>
+                            </div>
+                            
+                            {/* Editable Category Selector */}
+                            <div className="flex items-center gap-2 text-sm">
+                              <Tag className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                              {!processedMessageIds.has(message.id) ? (
+                                <Select
+                                  value={selectedCategoryId}
+                                  onValueChange={(value) => handleCategoryChange(message.id, index, value)}
+                                >
+                                  <SelectTrigger className="h-7 text-sm border-dashed border-[#C8A046]/50 bg-transparent" data-testid={`select-category-${index}`}>
+                                    <div className="flex items-center gap-1">
+                                      <SelectValue>
+                                        {currentCategory?.name || transaction.category}
+                                      </SelectValue>
+                                      <Edit2 className="h-3 w-3 text-[#C8A046] ml-1" />
+                                    </div>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {transactionCategories.map((cat: any) => (
+                                      <SelectItem key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className="text-gray-600 dark:text-gray-400">{currentCategory?.name || transaction.category}</span>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                              <Calendar className="h-4 w-4" />
+                              <span>{formatDate(transaction.date)}</span>
+                            </div>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">{transaction.description}</p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                     
                     <div className="flex gap-2 pt-1">
                       <Button
                         size="sm"
-                        onClick={() => handleConfirm(message.transactionPreviews!)}
-                        disabled={confirmMutation.isPending}
-                        className="flex-1 rounded-full bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg"
+                        onClick={() => handleConfirm(message.id, message.transactionPreviews!)}
+                        disabled={confirmMutation.isPending || processedMessageIds.has(message.id)}
+                        className="flex-1 rounded-full bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                         data-testid="button-confirm-transaction"
                       >
                         <Check className="h-4 w-4 mr-1" />
@@ -402,8 +471,9 @@ export default function Chat() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={handleReject}
-                        className="flex-1 rounded-full"
+                        onClick={() => handleReject(message.id)}
+                        disabled={processedMessageIds.has(message.id)}
+                        className="flex-1 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
                         data-testid="button-reject-transaction"
                       >
                         <X className="h-4 w-4 mr-1" />
