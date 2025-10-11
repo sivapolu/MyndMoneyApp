@@ -52,10 +52,22 @@ export async function parseExpenseFromText(
   }
 
   try {
+    const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     const typeInstruction = typeHint ? `The user indicated this is an ${typeHint}.` : '';
+    
     const prompt = `Parse the following expense or income text and extract structured information. 
-Return a JSON object with: amount (number), type ("expense" or "income"), category (one of: Food, Transport, Shopping, Bills, Entertainment, Healthcare, Education, Travel, Salary, Freelance, Investment, Gift, Other), description (brief text), date (ISO string, default to today if not mentioned), notes (optional).
+Current Date Context: Today is ${currentDayName}, ${currentDate}
+
+Return a JSON object with: amount (number), type ("expense" or "income"), category (one of: Food, Transport, Shopping, Bills, Entertainment, Healthcare, Education, Travel, Salary, Freelance, Investment, Gift, Other), description (brief text), date (ISO string YYYY-MM-DD format - calculate relative dates like "yesterday", "last Saturday", "last week" based on today's date, default to today if not mentioned), notes (optional).
 ${typeInstruction}
+
+Examples of date parsing:
+- "yesterday" → calculate date for yesterday based on ${currentDate}
+- "last Saturday" → calculate the most recent Saturday before today
+- "5th Oct" or "Oct 5" → 2025-10-05
+- "3 days ago" → calculate date 3 days before ${currentDate}
+- No date mentioned → use ${currentDate}
 
 Text: "${text}"
 
@@ -64,7 +76,7 @@ Return only valid JSON.`;
     const completion = await openaiClient.chat.completions.create({
       model: aiModel,
       messages: [
-        { role: "system", content: "You are a financial assistant that parses expense and income entries from natural language." },
+        { role: "system", content: "You are a financial assistant that parses expense and income entries from natural language. You are excellent at understanding relative dates and converting them to ISO format based on the current date context provided." },
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },
