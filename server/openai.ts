@@ -133,15 +133,28 @@ export async function parseMultiExpenseFromText(
   }
 
   try {
+    const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     const typeInstruction = typeHint ? `The user indicated these are ${typeHint}s.` : '';
+    
     const prompt = `Parse the following text that may contain one or multiple expenses or income entries. Extract all transactions mentioned.
-Return a JSON object with a "transactions" array. Each transaction should have: amount (number), type ("expense" or "income"), category (one of: Food, Transport, Shopping, Bills, Entertainment, Healthcare, Education, Travel, Salary, Freelance, Investment, Gift, Other), description (brief text), date (ISO string, default to today if not mentioned), notes (optional).
+Current Date Context: Today is ${currentDayName}, ${currentDate}
+
+Return a JSON object with a "transactions" array. Each transaction should have: amount (number), type ("expense" or "income"), category (one of: Food, Transport, Shopping, Bills, Entertainment, Healthcare, Education, Travel, Salary, Freelance, Investment, Gift, Other), description (brief text), date (ISO string YYYY-MM-DD format - calculate relative dates like "yesterday", "last Saturday", "last week" based on today's date, default to today if not mentioned), notes (optional).
 ${typeInstruction}
 
-Examples:
-- "Spent 500 on cab" → one transaction
-- "Cab 500, Food 300, Shopping 600" → three transactions
-- "I spent 500 on cab and 300 on food" → two transactions
+Examples of transaction parsing:
+- "Spent 500 on cab" → one transaction with today's date
+- "Cab 500 yesterday, Food 300 today" → two transactions with calculated dates
+- "I spent 500 on cab last Saturday and 300 on food yesterday" → two transactions with calculated relative dates
+- "Cab 500, Food 300, Shopping 600" → three transactions with today's date
+
+Examples of date parsing:
+- "yesterday" → calculate date for yesterday based on ${currentDate}
+- "last Saturday" → calculate the most recent Saturday before today
+- "5th Oct" or "Oct 5" → 2025-10-05
+- "3 days ago" → calculate date 3 days before ${currentDate}
+- No date mentioned → use ${currentDate}
 
 Text: "${text}"
 
@@ -150,7 +163,7 @@ Return only valid JSON with format: {"transactions": [...]}.`;
     const completion = await openaiClient.chat.completions.create({
       model: aiModel,
       messages: [
-        { role: "system", content: "You are a financial assistant that parses single or multiple expense and income entries from natural language." },
+        { role: "system", content: "You are a financial assistant that parses single or multiple expense and income entries from natural language. You are excellent at understanding relative dates and converting them to ISO format based on the current date context provided." },
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },
