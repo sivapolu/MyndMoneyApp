@@ -274,6 +274,18 @@ export class DatabaseStorage implements IStorage {
     return budget;
   }
 
+  async findBudgetByCategoryAndPeriod(categoryId: string, period: string, userId: string): Promise<Budget | undefined> {
+    const [budget] = await db
+      .select()
+      .from(budgets)
+      .where(and(
+        eq(budgets.userId, userId),
+        eq(budgets.categoryId, categoryId),
+        eq(budgets.period, period)
+      ));
+    return budget;
+  }
+
   async createBudget(insertBudget: InsertBudget, userId: string): Promise<Budget> {
     const [budget] = await db
       .insert(budgets)
@@ -283,6 +295,35 @@ export class DatabaseStorage implements IStorage {
         amount: String(insertBudget.amount),
         startDate: insertBudget.startDate || new Date(),
       })
+      .returning();
+    return budget;
+  }
+
+  async updateBudget(id: string, updateData: Partial<InsertBudget>, userId: string): Promise<Budget | undefined> {
+    const updates: any = {};
+    if (updateData.amount !== undefined) {
+      updates.amount = String(updateData.amount);
+    }
+    if (updateData.period !== undefined) {
+      updates.period = updateData.period;
+    }
+    if (updateData.startDate !== undefined) {
+      updates.startDate = updateData.startDate;
+    }
+    if (updateData.alertAt50 !== undefined) {
+      updates.alertAt50 = updateData.alertAt50;
+    }
+    if (updateData.alertAt80 !== undefined) {
+      updates.alertAt80 = updateData.alertAt80;
+    }
+    if (updateData.alertAt100 !== undefined) {
+      updates.alertAt100 = updateData.alertAt100;
+    }
+
+    const [budget] = await db
+      .update(budgets)
+      .set(updates)
+      .where(and(eq(budgets.id, id), eq(budgets.userId, userId)))
       .returning();
     return budget;
   }
