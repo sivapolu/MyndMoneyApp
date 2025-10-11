@@ -158,6 +158,12 @@ export interface ChatMessage {
     date: string;
     notes?: string;
   }>;
+  analyticsData?: {
+    type: 'text' | 'chart' | 'table' | 'summary';
+    data: any;
+    summary: string;
+    chartType?: 'line' | 'bar' | 'pie' | 'area';
+  };
 }
 
 // Dashboard stats type
