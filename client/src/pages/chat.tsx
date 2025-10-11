@@ -83,14 +83,17 @@ export default function Chat() {
   });
 
   const confirmMutation = useMutation({
-    mutationFn: async (transactions: any[]) => {
+    mutationFn: async ({ messageId, transactions }: { messageId: string; transactions: any[] }) => {
       if (transactions.length > 1) {
         return await apiRequest('POST', '/api/transactions/batch', { transactions });
       } else {
         return await apiRequest('POST', '/api/transactions', transactions[0]);
       }
     },
-    onSuccess: (response, transactions) => {
+    onSuccess: (response, { messageId, transactions }) => {
+      // Mark as processed only after successful save
+      setProcessedMessageIds(prev => new Set(prev).add(messageId));
+      
       queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/budgets/spending'] });
@@ -103,7 +106,8 @@ export default function Chat() {
       };
       setMessages((prev) => [...prev, successMessage]);
     },
-    onError: (error: any) => {
+    onError: (error: any, { messageId }) => {
+      // DON'T mark as processed on error - allow retry
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'system',
@@ -198,9 +202,6 @@ export default function Chat() {
   };
 
   const handleConfirm = (messageId: string, transactions: any[]) => {
-    // Mark message as processed to prevent duplicate clicks
-    setProcessedMessageIds(prev => new Set(prev).add(messageId));
-    
     // Apply any category changes before confirming
     const updatedTransactions = transactions.map((transaction, index) => {
       const key = `${messageId}-${index}`;
@@ -215,7 +216,8 @@ export default function Chat() {
       return transaction;
     });
     
-    confirmMutation.mutate(updatedTransactions);
+    // Pass messageId to mutation so it can be marked as processed on success
+    confirmMutation.mutate({ messageId, transactions: updatedTransactions });
   };
 
   const handleReject = (messageId: string) => {
