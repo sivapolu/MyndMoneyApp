@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual, createCipheriv, createDecipheriv, scryptSync } from "crypto";
+import { scrypt, randomBytes, timingSafeEqual, createCipheriv, createDecipheriv, pbkdf2Sync } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import type { User as SelectUser } from "@shared/schema";
@@ -24,7 +24,7 @@ function deriveEncryptionKey(): Buffer {
   
   // Use scrypt to derive a proper 32-byte key from the secret
   const salt = 'myndmoney-api-key-encryption-v1';
-  return scryptSync(secret, salt, 32);
+  return pbkdf2Sync(secret, salt, 100000, 32, 'sha512');
 }
 
 const ENCRYPTION_KEY = deriveEncryptionKey();
