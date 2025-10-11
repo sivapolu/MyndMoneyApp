@@ -18,8 +18,7 @@ export default function Chat() {
   const [, setLocation] = useLocation();
   const { open } = useSidebar();
   const { user } = useAuth();
-  const [chatMode, setChatMode] = useState<'transaction' | 'analytics'>('transaction');
-  const [transactionType, setTransactionType] = useState<'expense' | 'income'>('expense');
+  const [chatMode, setChatMode] = useState<'expense' | 'income' | 'analytics'>('expense');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [processedMessageIds, setProcessedMessageIds] = useState<Set<string>>(new Set());
@@ -84,7 +83,8 @@ export default function Chat() {
 
   const parseMutation = useMutation({
     mutationFn: async (text: string) => {
-      const response = await apiRequest('POST', '/api/chat/parse-multi', { text, type: transactionType });
+      const type = chatMode === 'analytics' ? 'expense' : chatMode; // Use chatMode as transaction type
+      const response = await apiRequest('POST', '/api/chat/parse-multi', { text, type });
       return await response.json();
     },
     onSuccess: (data) => {
@@ -332,7 +332,7 @@ export default function Chat() {
         'What was last month spending?',
         'Category breakdown',
       ]
-    : transactionType === 'expense'
+    : chatMode === 'expense'
     ? [
         '₹500 groceries',
         'Cab 500, Food 300',
@@ -380,23 +380,37 @@ export default function Chat() {
         </div>
       </header>
 
-      {/* Chat Mode Toggle - Navy & Gold Theme */}
-      <div className="relative z-10 px-4 pt-4">
+      {/* Chat Mode Toggle - Expense, Income, Ask AI in One Line */}
+      <div className="relative z-10 px-4 py-4">
         <div className="max-w-4xl mx-auto">
           <div className="inline-flex p-1 bg-white/60 dark:bg-[#1C2F4A]/60 backdrop-blur-md rounded-full border border-[#C8A046]/30 shadow-lg">
             <Button
-              variant={chatMode === 'transaction' ? 'default' : 'ghost'}
+              variant={chatMode === 'expense' ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setChatMode('transaction')}
+              onClick={() => setChatMode('expense')}
               className={`rounded-full px-6 transition-all duration-300 ${
-                chatMode === 'transaction' 
-                  ? 'bg-gradient-to-r from-[#1C2F4A] to-[#C8A046] text-white shadow-lg' 
+                chatMode === 'expense' 
+                  ? 'bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg' 
                   : 'text-gray-600 dark:text-gray-300'
               }`}
-              data-testid="button-transaction-mode"
+              data-testid="button-expense-mode"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Transaction
+              <TrendingDown className="h-4 w-4 mr-2" />
+              Expense
+            </Button>
+            <Button
+              variant={chatMode === 'income' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setChatMode('income')}
+              className={`rounded-full px-6 transition-all duration-300 ${
+                chatMode === 'income' 
+                  ? 'bg-gradient-to-r from-[#1C2F4A] to-[#2A4A6F] text-white shadow-lg' 
+                  : 'text-gray-600 dark:text-gray-300'
+              }`}
+              data-testid="button-income-mode"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Income
             </Button>
             <Button
               variant={chatMode === 'analytics' ? 'default' : 'ghost'}
@@ -404,7 +418,7 @@ export default function Chat() {
               onClick={() => setChatMode('analytics')}
               className={`rounded-full px-6 transition-all duration-300 ${
                 chatMode === 'analytics' 
-                  ? 'bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg' 
+                  ? 'bg-gradient-to-r from-[#1C2F4A] via-[#C8A046] to-[#D4AC58] text-white shadow-lg' 
                   : 'text-gray-600 dark:text-gray-300'
               }`}
               data-testid="button-analytics-mode"
@@ -415,44 +429,6 @@ export default function Chat() {
           </div>
         </div>
       </div>
-
-      {/* Transaction Type Toggle - Only show in transaction mode */}
-      {chatMode === 'transaction' && (
-        <div className="relative z-10 px-4 pb-2">
-          <div className="max-w-4xl mx-auto">
-            <div className="inline-flex p-1 bg-white/60 dark:bg-[#1C2F4A]/60 backdrop-blur-md rounded-full border border-[#C8A046]/30 shadow-lg">
-              <Button
-                variant={transactionType === 'expense' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTransactionType('expense')}
-                className={`rounded-full px-6 transition-all duration-300 ${
-                  transactionType === 'expense' 
-                    ? 'bg-gradient-to-r from-[#C8A046] to-[#D4AC58] text-white shadow-lg' 
-                    : 'text-gray-600 dark:text-gray-300'
-                }`}
-                data-testid="button-expense-mode"
-              >
-                <TrendingDown className="h-4 w-4 mr-2" />
-                Expense
-              </Button>
-              <Button
-                variant={transactionType === 'income' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setTransactionType('income')}
-                className={`rounded-full px-6 transition-all duration-300 ${
-                  transactionType === 'income' 
-                    ? 'bg-gradient-to-r from-[#1C2F4A] to-[#2A4A6F] text-white shadow-lg' 
-                    : 'text-gray-600 dark:text-gray-300'
-                }`}
-                data-testid="button-income-mode"
-              >
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Income
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Chat Messages */}
       <div className="relative z-10 flex-1 overflow-y-auto px-4 pb-32 lg:pb-24 space-y-4">
@@ -699,7 +675,7 @@ export default function Chat() {
               placeholder={
                 chatMode === 'analytics' 
                   ? 'Ask about your finances...' 
-                  : transactionType === 'expense' 
+                  : chatMode === 'expense' 
                     ? 'e.g., ₹500 groceries...' 
                     : 'e.g., ₹50k salary...'
               }
