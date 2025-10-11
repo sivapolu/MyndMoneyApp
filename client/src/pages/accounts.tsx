@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import type { Account } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 const accountFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -97,12 +98,14 @@ export default function Accounts() {
   }
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display font-semibold">Accounts</h1>
-          <p className="text-muted-foreground mt-1">Manage your financial accounts</p>
-        </div>
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-display font-semibold">Accounts</h1>
+            <p className="text-muted-foreground mt-1">Manage your financial accounts</p>
+          </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-account">
@@ -260,6 +263,7 @@ export default function Accounts() {
           </div>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }

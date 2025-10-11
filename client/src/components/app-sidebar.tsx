@@ -1,4 +1,4 @@
-import { Home, MessageSquare, PieChart, Wallet, Target, Settings } from "lucide-react";
+import { Home, MessageSquare, PieChart, Wallet, Target, FolderTree, BarChart3, TrendingUp, Sparkles, Upload, Settings } from "lucide-react";
 import { useLocation } from "wouter";
 import {
   Sidebar,
@@ -12,18 +12,18 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import logoPath from "@assets/ChatGPT Image Oct 10, 2025, 12_45_55 AM_1760043891915.png";
+import logoPath from "@assets/Untitled design_1760082821987.png";
 
 const menuItems = [
   {
-    title: "Dashboard",
+    title: "Chat",
     url: "/",
-    icon: Home,
+    icon: MessageSquare,
   },
   {
-    title: "Add Expense",
-    url: "/chat",
-    icon: MessageSquare,
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: Home,
   },
   {
     title: "Budgets",
@@ -40,6 +40,31 @@ const menuItems = [
     url: "/goals",
     icon: Target,
   },
+  {
+    title: "Categories",
+    url: "/categories",
+    icon: FolderTree,
+  },
+  {
+    title: "Reports",
+    url: "/reports",
+    icon: BarChart3,
+  },
+  {
+    title: "Analytics",
+    url: "/analytics",
+    icon: TrendingUp,
+  },
+  {
+    title: "AI Insights",
+    url: "/insights",
+    icon: Sparkles,
+  },
+  {
+    title: "Import Data",
+    url: "/import",
+    icon: Upload,
+  },
 ];
 
 export function AppSidebar() {
@@ -52,7 +77,7 @@ export function AppSidebar() {
           <img 
             src={logoPath} 
             alt="MyndMoney Logo" 
-            className="h-12 w-auto object-contain brightness-110 contrast-125 saturate-125"
+            className="h-20 w-auto object-contain brightness-110 contrast-125 saturate-125"
           />
         </div>
       </SidebarHeader>

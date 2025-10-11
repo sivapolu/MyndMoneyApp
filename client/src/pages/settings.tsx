@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, Shield, Palette, User, LogOut, Sparkles, Key } from "lucide-react";
 import { useState } from "react";
+import { PageHeader } from "@/components/page-header";
 
 const AI_MODELS = [
   { value: "gpt-5", label: "GPT-5 (Latest, Most Capable)" },
@@ -89,8 +90,10 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      <div>
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        <div>
         <h1 className="text-3xl font-display font-semibold">Settings</h1>
         <p className="text-muted-foreground mt-1">Manage your preferences</p>
       </div>
@@ -263,6 +266,7 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </>
   );
 }

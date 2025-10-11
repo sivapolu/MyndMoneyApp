@@ -14,6 +14,11 @@ import Chat from "@/pages/chat";
 import Budgets from "@/pages/budgets";
 import Accounts from "@/pages/accounts";
 import Goals from "@/pages/goals";
+import Categories from "@/pages/categories";
+import Reports from "@/pages/reports";
+import Analytics from "@/pages/analytics";
+import Insights from "@/pages/insights";
+import ImportPage from "@/pages/import";
 import Settings from "@/pages/settings";
 import Auth from "@/pages/auth";
 import NotFound from "@/pages/not-found";
@@ -39,11 +44,16 @@ function Router() {
   // Show main app for authenticated users
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/chat" component={Chat} />
+      <Route path="/" component={Chat} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/budgets" component={Budgets} />
       <Route path="/accounts" component={Accounts} />
       <Route path="/goals" component={Goals} />
+      <Route path="/categories" component={Categories} />
+      <Route path="/reports" component={Reports} />
+      <Route path="/analytics" component={Analytics} />
+      <Route path="/insights" component={Insights} />
+      <Route path="/import" component={ImportPage} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
@@ -57,19 +67,11 @@ function AuthenticatedApp() {
   };
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
+    <SidebarProvider defaultOpen={false} style={style as React.CSSProperties}>
       <div className="flex h-screen w-full">
         <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between p-4 border-b border-border lg:p-4 shrink-0">
-            <SidebarTrigger data-testid="button-sidebar-toggle" className="lg:flex" />
-            <ThemeToggle />
-          </header>
-          <main className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-7xl mx-auto">
-              <Router />
-            </div>
-          </main>
+        <div className="flex flex-col flex-1 overflow-y-auto">
+          <Router />
         </div>
       </div>
       <BottomNav />

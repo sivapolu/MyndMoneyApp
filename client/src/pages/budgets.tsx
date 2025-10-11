@@ -4,15 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, AlertCircle, CheckCircle } from "lucide-react";
+import { Plus, AlertCircle, CheckCircle, TrendingDown, TrendingUp } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import type { Budget, Category } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 const budgetFormSchema = z.object({
   categoryId: z.string().min(1, "Category is required"),
@@ -22,6 +24,8 @@ const budgetFormSchema = z.object({
 
 export default function Budgets() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [budgetType, setBudgetType] = useState<'expense' | 'income'>('expense');
+  const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
   const queryClient = useQueryClient();
 
   const { data: budgets, isLoading: budgetsLoading } = useQuery<Budget[]>({
@@ -99,14 +103,87 @@ export default function Budgets() {
     );
   }
 
+  const expenseBudgets = budgets?.filter(b => {
+    const category = categories?.find(c => c.id === b.categoryId);
+    return category?.type === 'expense';
+  }) || [];
+
+  const incomeBudgets = budgets?.filter(b => {
+    const category = categories?.find(c => c.id === b.categoryId);
+    return category?.type === 'income';
+  }) || [];
+
+  const renderBudgetCards = (budgetList: Budget[], type: 'expense' | 'income') => {
+    if (budgetList.length === 0) {
+      return (
+        <Card className="p-12">
+          <div className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+              <Plus className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <div>
+              <h3 className="font-display font-semibold text-lg">No {type} budgets yet</h3>
+              <p className="text-muted-foreground mt-1">Create your first {type} budget to track {type === 'expense' ? 'spending' : 'earnings'}</p>
+            </div>
+            <Button onClick={() => { setBudgetType(type); setDialogOpen(true); }} data-testid={`button-create-first-${type}-budget`}>
+              Create {type === 'expense' ? 'Expense' : 'Income'} Budget
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {budgetList.map((budget) => {
+          const category = categories?.find(c => c.id === budget.categoryId);
+          const spent = spending?.[budget.categoryId] || 0;
+          const percentage = getProgress(budget.id, budget.categoryId, Number(budget.amount));
+          
+          return (
+            <Card key={budget.id} className="hover-elevate transition-all" data-testid={`budget-${budget.id}`}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+                <CardTitle className="text-base font-medium">{category?.name}</CardTitle>
+                {getStatusIcon(percentage)}
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{type === 'expense' ? 'Spent' : 'Earned'}</span>
+                    <span className={`font-semibold tabular-nums ${getStatusColor(percentage)}`}>
+                      {formatCurrency(spent)} / {formatCurrency(Number(budget.amount))}
+                    </span>
+                  </div>
+                  <Progress value={percentage} className="h-2" />
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="capitalize">{budget.period}</span>
+                  <span>{percentage.toFixed(0)}% {type === 'expense' ? 'used' : 'achieved'}</span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-6 pb-20 lg:pb-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-display font-semibold">Budgets</h1>
-          <p className="text-muted-foreground mt-1">Track your spending limits</p>
-        </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+    <>
+      <PageHeader />
+      <div className="space-y-6 p-6 pb-24 lg:pb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-display font-semibold">Budgets</h1>
+            <p className="text-muted-foreground mt-1">Track your spending and income targets</p>
+          </div>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          if (open) {
+            setBudgetType(activeTab);
+            form.setValue('categoryId', '');
+          }
+          setDialogOpen(open);
+        }}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-budget">
               <Plus className="h-4 w-4 mr-2" />
@@ -117,6 +194,28 @@ export default function Budgets() {
             <DialogHeader>
               <DialogTitle>Create Budget</DialogTitle>
             </DialogHeader>
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={budgetType === 'expense' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setBudgetType('expense')}
+                className="flex-1"
+                data-testid="button-expense-budget"
+              >
+                <TrendingDown className="h-4 w-4 mr-2" />
+                Expense
+              </Button>
+              <Button
+                variant={budgetType === 'income' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setBudgetType('income')}
+                className="flex-1"
+                data-testid="button-income-budget"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Income
+              </Button>
+            </div>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                 <FormField
@@ -132,7 +231,7 @@ export default function Budgets() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {categories?.filter(c => c.type === 'expense').map((category) => (
+                          {categories?.filter(c => c.type === budgetType).map((category) => (
                             <SelectItem key={category.id} value={category.id}>
                               {category.name}
                             </SelectItem>
@@ -194,54 +293,25 @@ export default function Budgets() {
         </Dialog>
       </div>
 
-      {budgets && budgets.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {budgets.map((budget) => {
-            const category = categories?.find(c => c.id === budget.categoryId);
-            const spent = spending?.[budget.categoryId] || 0;
-            const percentage = getProgress(budget.id, budget.categoryId, Number(budget.amount));
-            
-            return (
-              <Card key={budget.id} className="hover-elevate transition-all" data-testid={`budget-${budget.id}`}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
-                  <CardTitle className="text-base font-medium">{category?.name}</CardTitle>
-                  {getStatusIcon(percentage)}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Spent</span>
-                      <span className={`font-semibold tabular-nums ${getStatusColor(percentage)}`}>
-                        {formatCurrency(spent)} / {formatCurrency(Number(budget.amount))}
-                      </span>
-                    </div>
-                    <Progress value={percentage} className="h-2" />
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="capitalize">{budget.period}</span>
-                    <span>{percentage.toFixed(0)}% used</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        <Card className="p-12">
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-              <Plus className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <div>
-              <h3 className="font-display font-semibold text-lg">No budgets yet</h3>
-              <p className="text-muted-foreground mt-1">Create your first budget to track spending</p>
-            </div>
-            <Button onClick={() => setDialogOpen(true)} data-testid="button-create-first-budget">
-              Create Budget
-            </Button>
-          </div>
-        </Card>
-      )}
-    </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'expense' | 'income')} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="expense" data-testid="tab-expense-budgets">
+            <TrendingDown className="h-4 w-4 mr-2" />
+            Expense Budgets
+          </TabsTrigger>
+          <TabsTrigger value="income" data-testid="tab-income-budgets">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Income Budgets
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="expense" className="space-y-4">
+          {renderBudgetCards(expenseBudgets, 'expense')}
+        </TabsContent>
+        <TabsContent value="income" className="space-y-4">
+          {renderBudgetCards(incomeBudgets, 'income')}
+        </TabsContent>
+      </Tabs>
+      </div>
+    </>
   );
 }

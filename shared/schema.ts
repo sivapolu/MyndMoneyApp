@@ -24,13 +24,16 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   aiModel: varchar("ai_model").default("gpt-4.1-mini"), // User's preferred AI model for expense parsing
   openaiApiKey: varchar("openai_api_key"), // User's personal OpenAI API key (encrypted)
+  resetToken: varchar("reset_token"), // Password reset token
+  resetTokenExpiry: timestamp("reset_token_expiry"), // Token expiration time
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Categories for expense/income classification (Global, not user-specific)
+// Categories for expense/income classification (Global and user-specific)
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // null = global category, value = user-specific
   name: text("name").notNull(),
   type: text("type").notNull(), // 'expense' or 'income'
   icon: text("icon").notNull(), // lucide icon name
@@ -91,7 +94,7 @@ export const goals = pgTable("goals", {
 });
 
 // Insert schemas with proper coercion
-export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, userId: true });
 
 export const insertAccountSchema = createInsertSchema(accounts).omit({ id: true, userId: true }).extend({
   balance: z.coerce.number(),
@@ -145,6 +148,16 @@ export interface ChatMessage {
     description: string;
     date: Date;
   };
+  transactionPreviews?: Array<{
+    amount: number;
+    type: 'expense' | 'income';
+    category: string;
+    categoryId: string;
+    accountId: string;
+    description: string;
+    date: string;
+    notes?: string;
+  }>;
 }
 
 // Dashboard stats type

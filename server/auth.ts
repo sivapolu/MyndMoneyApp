@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import { scrypt, randomBytes, timingSafeEqual, createCipheriv, createDecipheriv } from "crypto";
+import { scrypt, randomBytes, timingSafeEqual, createCipheriv, createDecipheriv, scryptSync } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import type { User as SelectUser } from "@shared/schema";
@@ -15,7 +15,19 @@ declare global {
 
 const scryptAsync = promisify(scrypt);
 
-const ENCRYPTION_KEY = process.env.SESSION_SECRET || "must-be-32-chars-long-secret!!";
+// Derive a proper 32-byte encryption key using scrypt KDF
+function deriveEncryptionKey(): Buffer {
+  const secret = process.env.ENCRYPTION_SECRET || process.env.SESSION_SECRET;
+  if (!secret || secret.length < 16) {
+    throw new Error('ENCRYPTION_SECRET or SESSION_SECRET must be at least 16 characters for secure API key encryption');
+  }
+  
+  // Use scrypt to derive a proper 32-byte key from the secret
+  const salt = 'myndmoney-api-key-encryption-v1';
+  return scryptSync(secret, salt, 32);
+}
+
+const ENCRYPTION_KEY = deriveEncryptionKey();
 const ALGORITHM = 'aes-256-cbc';
 
 export async function hashPassword(password: string): Promise<string> {
@@ -33,7 +45,7 @@ export async function comparePasswords(supplied: string, stored: string): Promis
 
 export function encryptApiKey(apiKey: string): string {
   const iv = randomBytes(16);
-  const cipher = createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.slice(0, 32)), iv);
+  const cipher = createCipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
   let encrypted = cipher.update(apiKey, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   return iv.toString('hex') + ':' + encrypted;
@@ -43,7 +55,7 @@ export function decryptApiKey(encryptedKey: string): string {
   const parts = encryptedKey.split(':');
   const iv = Buffer.from(parts[0], 'hex');
   const encrypted = parts[1];
-  const decipher = createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY.slice(0, 32)), iv);
+  const decipher = createDecipheriv(ALGORITHM, ENCRYPTION_KEY, iv);
   let decrypted = decipher.update(encrypted, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
   return decrypted;
@@ -146,12 +158,119 @@ export function setupAuth(app: Express) {
     });
   });
 
+  app.get("/api/logout", (req: Request, res: Response, next: NextFunction) => {
+    req.logout((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ error: 'Failed to logout' });
+      }
+      res.redirect('/');
+    });
+  });
+
   app.get("/api/user", (req: Request, res: Response) => {
     if (!req.isAuthenticated() || !req.user) {
       return res.sendStatus(401);
     }
     const { password: _, ...userWithoutPassword } = req.user;
     res.json(userWithoutPassword);
+  });
+
+  // Password reset - Request reset token
+  app.post("/api/reset-password/request", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // Don't reveal if email exists or not (security best practice)
+        return res.status(200).json({ 
+          message: "If an account exists with this email, a reset token has been sent" 
+        });
+      }
+
+      // Generate 6-digit reset token
+      const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+      const resetTokenExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+      await storage.setPasswordResetToken(user.id, resetToken, resetTokenExpiry);
+
+      // Send token via email API
+      try {
+        const emailResponse = await fetch("http://app.c360.zone/tekroi_api/api/email_send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mail: user.email,
+            subject: "MyndMoney - Password Reset Token",
+            message: `Your password reset token is: ${resetToken}\n\nThis token will expire in 30 minutes.\n\nIf you did not request this reset, please ignore this email.`
+          })
+        });
+
+        if (!emailResponse.ok) {
+          throw new Error("Email API failed");
+        }
+
+        res.status(200).json({ 
+          message: "Reset token has been sent to your email",
+          email: user.email
+        });
+      } catch (emailError) {
+        console.error("Email sending error:", emailError);
+        // Clear the token since we couldn't send it
+        await storage.setPasswordResetToken(user.id, "", new Date(0));
+        res.status(500).json({ error: "Failed to send reset email. Please try again." });
+      }
+    } catch (error) {
+      console.error("Reset token generation error:", error);
+      res.status(500).json({ error: "Failed to generate reset token" });
+    }
+  });
+
+  // Password reset - Verify token and reset password
+  app.post("/api/reset-password/confirm", async (req: Request, res: Response) => {
+    try {
+      const { email, token, newPassword } = req.body;
+      
+      if (!email || !token || !newPassword) {
+        return res.status(400).json({ error: "Email, token, and new password are required" });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(400).json({ error: "Invalid reset token" });
+      }
+
+      // Verify token and expiry
+      if (!user.resetToken || !user.resetTokenExpiry) {
+        return res.status(400).json({ error: "No reset token found" });
+      }
+
+      if (user.resetToken !== token) {
+        return res.status(400).json({ error: "Invalid reset token" });
+      }
+
+      if (new Date() > new Date(user.resetTokenExpiry)) {
+        return res.status(400).json({ error: "Reset token has expired" });
+      }
+
+      // Hash new password and update
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.resetUserPassword(user.id, hashedPassword);
+
+      res.status(200).json({ message: "Password reset successful" });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
   });
 }
 

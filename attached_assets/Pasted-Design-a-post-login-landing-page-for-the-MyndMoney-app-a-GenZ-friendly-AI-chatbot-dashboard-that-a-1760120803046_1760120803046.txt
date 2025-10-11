@@ -1,0 +1,88 @@
+Design a post-login landing page for the MyndMoney app — a GenZ-friendly AI chatbot dashboard that allows users to toggle between Expenses and Revenue.
+
+CoSTAR
+Context
+
+The MyndMoney app helps users track personal finance using natural language inputs.
+After login, users should land on the Chatbot Screen (as shown in the provided screenshot).
+The UI should blend a minimal, chat-first experience with GenZ-style aesthetics (soft gradients, rounded edges, modern icons).
+The page replaces traditional dashboards with an AI-driven conversation view.
+
+Objective
+
+Create an aesthetic, GenZ-style main landing page with:
+
+Chatbot interface at the center (default landing after login).
+
+Expense ↔ Revenue toggle at the top (modern segmented control).
+
+Watermark logo (MyndMoney symbol) in the background — semi-transparent.
+
+Slide-out Main Menu (hidden by default, opens on clicking ☰ / 3-line icon).
+
+Floating icons for quick actions (Add Expense, Reports, Analytics, etc.).
+
+Seamless experience across desktop (Replit.dev style) and mobile.
+
+Success Criteria:
+✅ Visually clean, GenZ-appealing (think Notion + ChatGPT + Monzo).
+✅ Logo watermark subtle and centered behind chat bubbles.
+✅ Menu collapses smoothly with animation.
+✅ Chat toggle highlights current mode (Expense / Revenue).
+✅ Consistent color palette (cool blues, lavender, white gradients).
+
+Style
+
+Font: Modern rounded (e.g., Inter, Nunito, or Poppins).
+
+Colors: Minimal pastel tones — e.g., sky blue, lilac, soft white.
+
+Background: Light gradient with subtle blur.
+
+Watermark: 10–15% opacity logo centered behind chat area.
+
+Layout: Clean with large touch-friendly controls and floating icons.
+
+Chat bubbles with soft shadows, rounded corners (radius 16–20px).
+
+Toggle buttons with gradient hover animation.
+
+Tone
+
+Friendly, calm, and futuristic — “your finance buddy that feels like chatting with a friend.”
+
+Audience
+
+Primary: GenZ and young professionals (18–30 yrs) using AI-based budgeting tools.
+
+Response
+
+Generate a UI design specification or code concept (React/Tailwind/Figma structure) for the landing screen with:
+
+Top Section:
+
+Toggle buttons: “Expense” / “Revenue”
+
+Floating profile icon (top-right).
+
+Main Section:
+
+Chat interface (AI messages, input field, paper-plane send icon).
+
+Background watermark (MyndMoney logo).
+
+Left Drawer Menu (☰):
+
+Appears on click with smooth slide-in animation.
+
+Options: Dashboard, Add Expense, Budgets, Accounts, Goals, Reports, Analytics, AI Insights, Import Data.
+
+Bottom Navigation (Mobile-friendly):
+
+Home, Chat, Budgets, Accounts, Goals icons.
+
+Before final output, self-check:
+✅ Logo watermark properly aligned and non-intrusive
+✅ Responsive layout (desktop & mobile)
+✅ Menu animation and toggle state functional
+✅ GenZ aesthetic verified via gradient and typography balance
