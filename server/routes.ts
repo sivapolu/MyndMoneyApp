@@ -242,7 +242,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const validated = insertBudgetSchema.parse(req.body);
-      const budget = await storage.createBudget(validated, userId);
+      
+      // Check if budget already exists for this category and period
+      const period = validated.period || 'monthly';
+      const existingBudget = await storage.findBudgetByCategoryAndPeriod(
+        validated.categoryId,
+        period,
+        userId
+      );
+
+      let budget;
+      if (existingBudget) {
+        // Update existing budget
+        budget = await storage.updateBudget(existingBudget.id, validated, userId);
+      } else {
+        // Create new budget
+        budget = await storage.createBudget(validated, userId);
+      }
+      
       res.json(budget);
     } catch (error) {
       res.status(400).json({ error: "Invalid budget data" });
@@ -258,15 +275,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "budgets must be an array" });
       }
 
-      const createdBudgets = [];
+      const processedBudgets = [];
       const errors = [];
 
       for (let index = 0; index < budgetData.length; index++) {
         const budgetItem = budgetData[index];
         try {
           const validated = insertBudgetSchema.parse(budgetItem);
-          const budget = await storage.createBudget(validated, userId);
-          createdBudgets.push(budget);
+          const period = validated.period || 'monthly';
+          
+          // Check if budget already exists for this category and period
+          const existingBudget = await storage.findBudgetByCategoryAndPeriod(
+            validated.categoryId,
+            period,
+            userId
+          );
+
+          let budget;
+          if (existingBudget) {
+            // Update existing budget
+            budget = await storage.updateBudget(existingBudget.id, validated, userId);
+          } else {
+            // Create new budget
+            budget = await storage.createBudget(validated, userId);
+          }
+          
+          processedBudgets.push(budget);
         } catch (error: any) {
           errors.push({
             row: index + 1,
@@ -278,10 +312,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ 
         success: true,
-        imported: createdBudgets.length,
+        imported: processedBudgets.length,
         failed: errors.length,
         errors: errors.length > 0 ? errors : undefined,
-        budgets: createdBudgets
+        budgets: processedBudgets
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to import budgets" });
