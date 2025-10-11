@@ -539,6 +539,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Chat - AI Analytics (protected - user-specific)
+  app.post("/api/chat/analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { query } = req.body;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({ error: "Query is required" });
+      }
+
+      // Get user's AI model preference and API key
+      const user = await storage.getUser(userId);
+      const aiModel = user?.aiModel || "gpt-4.1-mini";
+      const userOpenAIKey = user?.openaiApiKey || null;
+
+      // Parse the analytics query
+      const { parseAnalyticsQuery, generateAnalyticsResponse } = await import("./analytics");
+      const parsedQuery = await parseAnalyticsQuery(query, aiModel, userOpenAIKey);
+
+      // Fetch user's transactions and categories
+      const transactions = await storage.getTransactions(userId);
+      const categories = await storage.getCategories(userId);
+
+      // Generate analytics response
+      const analyticsResponse = await generateAnalyticsResponse(parsedQuery, transactions, categories);
+
+      res.json(analyticsResponse);
+    } catch (error) {
+      console.error("Analytics error:", error);
+      res.status(500).json({ error: "Failed to process analytics query" });
+    }
+  });
+
   // Chat - AI multi-expense parsing (protected - user-specific)
   app.post("/api/chat/parse-multi", isAuthenticated, async (req: any, res) => {
     try {
