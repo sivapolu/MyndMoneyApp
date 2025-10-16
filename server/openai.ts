@@ -59,14 +59,17 @@ export async function parseExpenseFromText(
     const prompt = `Parse the following expense or income text and extract structured information. 
 Current Date Context: Today is ${currentDayName}, ${currentDate}
 
+IMPORTANT: Only accept PAST dates or TODAY. Do NOT accept future dates. If a future date is mentioned, use today's date instead.
+
 Return a JSON object with: amount (number), type ("expense" or "income"), category (one of: Food, Transport, Shopping, Bills, Entertainment, Healthcare, Education, Travel, Salary, Freelance, Investment, Gift, Other), description (brief text), date (ISO string YYYY-MM-DD format - calculate relative dates like "yesterday", "last Saturday", "last week" based on today's date, default to today if not mentioned), notes (optional).
 ${typeInstruction}
 
-Examples of date parsing:
+Examples of date parsing (PAST DATES ONLY):
 - "yesterday" → calculate date for yesterday based on ${currentDate}
 - "last Saturday" → calculate the most recent Saturday before today
-- "5th Oct" or "Oct 5" → 2025-10-05
+- "5th Oct" or "Oct 5" → 2025-10-05 (only if this is in the past)
 - "3 days ago" → calculate date 3 days before ${currentDate}
+- "tomorrow" or any future date → use ${currentDate} instead
 - No date mentioned → use ${currentDate}
 
 Text: "${text}"
@@ -140,6 +143,8 @@ export async function parseMultiExpenseFromText(
     const prompt = `Parse the following text that may contain one or multiple expenses or income entries. Extract all transactions mentioned.
 Current Date Context: Today is ${currentDayName}, ${currentDate}
 
+IMPORTANT: Only accept PAST dates or TODAY. Do NOT accept future dates. If a future date is mentioned, use today's date instead.
+
 Return a JSON object with a "transactions" array. Each transaction should have: amount (number), type ("expense" or "income"), category (one of: Food, Transport, Shopping, Bills, Entertainment, Healthcare, Education, Travel, Salary, Freelance, Investment, Gift, Other), description (brief text), date (ISO string YYYY-MM-DD format - calculate relative dates like "yesterday", "last Saturday", "last week" based on today's date, default to today if not mentioned), notes (optional).
 ${typeInstruction}
 
@@ -149,11 +154,12 @@ Examples of transaction parsing:
 - "I spent 500 on cab last Saturday and 300 on food yesterday" → two transactions with calculated relative dates
 - "Cab 500, Food 300, Shopping 600" → three transactions with today's date
 
-Examples of date parsing:
+Examples of date parsing (PAST DATES ONLY):
 - "yesterday" → calculate date for yesterday based on ${currentDate}
 - "last Saturday" → calculate the most recent Saturday before today
-- "5th Oct" or "Oct 5" → 2025-10-05
+- "5th Oct" or "Oct 5" → 2025-10-05 (only if this is in the past)
 - "3 days ago" → calculate date 3 days before ${currentDate}
+- "tomorrow" or any future date → use ${currentDate} instead
 - No date mentioned → use ${currentDate}
 
 Text: "${text}"
