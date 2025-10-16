@@ -659,14 +659,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           c.name.toLowerCase() === parsed.category.toLowerCase()
         );
 
-        // Validate date (accept past year or next year)
+        // Validate date (only accept past dates and today, no future dates)
         let transactionDate = new Date();
         if (parsed.date) {
           const parsedDateObj = new Date(parsed.date);
           const now = new Date();
           const daysDiff = (now.getTime() - parsedDateObj.getTime()) / (1000 * 60 * 60 * 24);
-          // Accept dates within last 365 days or up to 365 days in the future
-          if (daysDiff >= -365 && daysDiff <= 365) {
+          // Accept dates within last 365 days (past only, no future)
+          if (daysDiff >= 0 && daysDiff <= 365) {
             transactionDate = parsedDateObj;
           }
         }
@@ -729,14 +729,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accounts = [defaultAccount];
       }
 
-      // Use parsed date if valid (within last year or next year), otherwise use today
+      // Use parsed date if valid (past dates only, no future), otherwise use today
       let transactionDate = new Date();
       if (parsed.date) {
         const parsedDateObj = new Date(parsed.date);
         const now = new Date();
         const daysDiff = (now.getTime() - parsedDateObj.getTime()) / (1000 * 60 * 60 * 24);
-        // Accept dates within last 365 days or up to 365 days in the future
-        if (daysDiff >= -365 && daysDiff <= 365) {
+        // Accept dates within last 365 days (past only, no future)
+        if (daysDiff >= 0 && daysDiff <= 365) {
           transactionDate = parsedDateObj;
         }
       }
